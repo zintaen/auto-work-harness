@@ -1,0 +1,10 @@
+# Egress allowlist for credential_proxy.py — exact hosts or their subdomains.
+# Keep this MINIMAL. Every line is a capability the agent gains.
+github.com
+api.github.com
+codeload.github.com
+objects.githubusercontent.com
+registry.npmjs.org
+pypi.org
+files.pythonhosted.org
+api.anthropic.com

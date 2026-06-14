@@ -1,0 +1,17 @@
+{
+  "name": "auto-work-harness-sandbox",
+  "_comment": "Default-deny egress devcontainer for unattended agent runs. The agent runs as a non-root user; init-firewall.sh applies the allowlist with NET_ADMIN. This is what makes `claude --dangerously-skip-permissions` safe to run unattended.",
+  "build": { "dockerfile": "Dockerfile" },
+  "runArgs": [
+    "--cap-add=NET_ADMIN",
+    "--cap-add=NET_RAW"
+  ],
+  "remoteUser": "agent",
+  "containerEnv": {
+    "AWH_GATE_CMD": "make verify"
+  },
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
+  "customizations": {
+    "comment": "Credentials (GitHub token, API keys) are injected by the egress proxy OUTSIDE this container and never mounted here — the agent never sees a raw key."
+  }
+}

@@ -1,0 +1,36 @@
+;; macOS Seatbelt profile for an unattended local agent run.
+;; Usage:  sandbox-exec -f sandbox/seatbelt/agent.sb -D PROJECT=$PWD claude --dangerously-skip-permissions
+;;
+;; macOS native sandboxing (sandbox-exec / Seatbelt) is what Anthropic ships under
+;; the hood for Claude Code sandboxing on macOS. This profile denies outbound
+;; network by default (force traffic through a local proxy) and blocks reads of
+;; credential stores even if a prompt-injection tries to exfiltrate them.
+;;
+;; NOTE: sandbox-exec is deprecated-but-present on macOS; treat this as defense in
+;; depth alongside the egress proxy, not the sole boundary.
+
+(version 1)
+(deny default)
+
+;; --- allow the agent to run and read system frameworks/libraries ---
+(allow process-exec)
+(allow process-fork)
+(allow sysctl-read)
+(allow mach-lookup)
+(allow file-read* (subpath "/usr") (subpath "/System") (subpath "/Library") (subpath "/bin") (subpath "/opt") (subpath "/private/var/db"))
+
+;; --- project workspace: full read/write ---
+(allow file-read* file-write* (subpath (param "PROJECT")))
+(allow file-read* file-write* (subpath "/private/tmp") (subpath "/tmp"))
+
+;; --- explicitly DENY credential/secret stores (deny wins) ---
+(deny file-read* (subpath (string-append (param "HOME") "/.aws")))
+(deny file-read* (subpath (string-append (param "HOME") "/.ssh")))
+(deny file-read* (subpath (string-append (param "HOME") "/.config/gcloud")))
+(deny file-read* (regex #"/\.env(\.|$)"))
+(deny file-read* (regex #"\.pem$") (regex #"id_rsa"))
+
+;; --- network: deny outbound by default; allow only loopback (the local proxy) ---
+(deny network-outbound)
+(allow network-outbound (remote ip "localhost:*"))
+(allow network-bind (local ip "localhost:*"))
