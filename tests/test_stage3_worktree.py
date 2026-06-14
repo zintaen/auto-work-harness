@@ -109,6 +109,9 @@ class TestLifecycle:
         env = mgr.write_isolation("iso", base_port=5000)
         assert 5000 <= int(env["PORT"]) < 6000
         assert (mgr.worktrees_dir / "iso" / ".env.local").exists()
+        # port must be DETERMINISTIC (crc32, not salted hash()) across calls
+        env2 = mgr.write_isolation("iso", base_port=5000)
+        assert env2["PORT"] == env["PORT"]
 
     def test_disk_usage_nonnegative(self, repo):
         mgr = WorktreeManager(repo)

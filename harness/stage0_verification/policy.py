@@ -8,12 +8,19 @@ around ``evaluate_event``.
 Two default deny classes, both grounded in published incidents:
 
   * Destructive shell commands — ``rm -rf /``, force-pushes, ``mkfs``, fork bombs,
-    ``DROP DATABASE``, ``curl … | sh``. The AUTO_WORK protocol forbids these in an
-    unattended run; here they are *structurally* blocked, not prompt-discouraged.
-  * Secret reads — ``.env``, ``~/.aws/credentials``, ``*.pem``, ``id_rsa``, ``.ssh/``.
-    A phishing prompt got Claude to exfiltrate ``~/.aws/credentials`` in 24/25
-    retries (Anthropic, "How we contain Claude across products", 2026); the only
-    defense that held was the environment boundary. This is that boundary.
+    ``DROP DATABASE``, ``curl … | sh``.
+  * Secret reads/exfiltration — ``.env``, ``~/.aws/credentials``, ``*.pem``, ``id_rsa``,
+    ``.ssh/`` via ``cat``/``cp``/``tar``/``scp``/``source``/``curl -d @…`` and friends.
+    A phishing prompt got Claude to exfiltrate ``~/.aws/credentials`` in 24/25 retries
+    (Anthropic, "How we contain Claude across products", 2026).
+
+SCOPE — read this honestly. A regex/glob deny-list catches the common, obvious
+cases; it is high-signal defense-in-depth, NOT a complete sandbox. The survey's
+own lesson is that patterns are unreliable and *structure* wins, so a determined
+bypass (an unusual verb, an obfuscated path, ``base64`` round-tripping) can evade
+any blocklist. The real containment boundary is the default-deny egress sandbox in
+``sandbox/`` (the only thing that held in Anthropic's exfil incident). Run BOTH:
+this gate stops the lazy/obvious failure fast; the sandbox stops the rest.
 """
 
 from __future__ import annotations
@@ -33,8 +40,13 @@ _WRITE_INDICATORS = (">", ">>", "tee", "sed", "truncate", "chmod", "dd", "mv", "
 
 # Default destructive-command signatures (case-insensitive, matched on the command string).
 _DEFAULT_DENY_COMMANDS: tuple[str, ...] = (
-    r"\brm\s+-[a-z]*r[a-z]*f[a-z]*\s+(/|~|\$HOME|\*|\.)(\s|$)",  # rm -rf / ~ * .
-    r"\brm\s+-[a-z]*f[a-z]*r[a-z]*\s+(/|~|\$HOME|\*|\.)(\s|$)",  # rm -fr ...
+    # recursive+force rm (flags contiguous OR split: -rf, -fr, -r -f) targeting a
+    # dangerous root. Absolute/system dirs may be followed by "/" (e.g. /home/user);
+    # but "." and "*" must be followed by space/end so "./build" stays allowed.
+    r"\brm\b(?=[^\n]*\s-\w*r)(?=[^\n]*\s-\w*f)[^\n]*\s"
+    r"(?:(/|~|\$HOME|/etc|/usr|/var|/bin|/lib|/boot|/sys|/proc|/opt|/home)(\s|/|$)"
+    r"|(\*|\.)(\s|$))",
+    r"\bfind\s+(/|~|\$HOME)[^\n]*-(delete|exec\s+rm)\b",  # find / ... -delete / -exec rm
     r"\bgit\s+push\b[^\n]*\s(--force\b|-f\b)",  # force push
     r"\bgit\s+push\b[^\n]*\s\+",  # refspec force (+branch)
     r"\bgit\s+reset\s+--hard\b[^\n]*\borigin/",  # hard reset to remote
@@ -78,8 +90,38 @@ _DEFAULT_DENY_PATHS: tuple[str, ...] = (
     "*.kdbx",
 )
 
-# Read-only commands that *view* a file — used to extend secret-path denial to Bash.
-_READ_CMDS = ("cat", "less", "more", "head", "tail", "bat", "nl", "xxd", "od", "strings", "grep")
+# Commands that read OR move/transmit a file — used to extend secret denial to Bash.
+# Covers viewing (cat/head), copying (cp/tar/zip), transmitting (scp/rsync/curl/wget),
+# sourcing (source/.), and encoding round-trips (base64/openssl) of a secret path.
+_TOUCH_CMDS = (
+    "cat",
+    "less",
+    "more",
+    "head",
+    "tail",
+    "bat",
+    "nl",
+    "xxd",
+    "od",
+    "strings",
+    "grep",
+    "cp",
+    "mv",
+    "scp",
+    "rsync",
+    "tar",
+    "zip",
+    "gzip",
+    "install",
+    "ln",
+    "dd",
+    "curl",
+    "wget",
+    "base64",
+    "openssl",
+    "source",
+    ".",
+)
 
 
 @dataclass(frozen=True)
@@ -142,15 +184,15 @@ def _path_matches(path: str, globs: list[str]) -> str | None:
 
 
 def _command_hits_secret(command: str, globs: list[str]) -> str | None:
-    """Detect a read command (cat/grep/...) targeting a secret path inside a Bash command."""
+    """Detect a read/copy/transmit command targeting a secret path inside a Bash command."""
     tokens = re.split(r"[\s;|&]+", command)
     if not tokens:
         return None
-    saw_read_cmd = any(t.rsplit("/", 1)[-1] in _READ_CMDS for t in tokens)
-    if not saw_read_cmd:
+    saw_touch_cmd = any(t.rsplit("/", 1)[-1] in _TOUCH_CMDS for t in tokens)
+    if not saw_touch_cmd:
         return None
     for tok in tokens:
-        hit = _path_matches(tok, globs)
+        hit = _path_matches(tok.lstrip("@"), globs)
         if hit:
             return hit
     return None

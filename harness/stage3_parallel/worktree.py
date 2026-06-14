@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -195,7 +196,8 @@ class WorktreeManager:
         path = self.worktrees_dir / task_id
         if not path.exists():
             raise WorktreeError(f"no worktree for task {task_id!r}")
-        port = base_port + (abs(hash(task_id)) % 1000)
+        # crc32 (not builtin hash(), which is salted per-process) -> stable port.
+        port = base_port + (zlib.crc32(task_id.encode()) % 1000)
         env = {"PORT": str(port), "AWH_WORKTREE": task_id}
         (path / ".env.local").write_text("".join(f"{k}={v}\n" for k, v in env.items()))
         return env
