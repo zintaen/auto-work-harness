@@ -130,7 +130,11 @@ def wilson_interval(successes: int, n: int, z: float = 1.959963984540054) -> Int
     denom = 1.0 + z2 / n
     center = (p + z2 / (2 * n)) / denom
     margin = (z * math.sqrt((p * (1 - p) + z2 / (4 * n)) / n)) / denom
-    return Interval(point=p, low=max(0.0, center - margin), high=min(1.0, center + margin))
+    low = max(0.0, center - margin)
+    high = min(1.0, center + margin)
+    # p_hat is in the Wilson interval by construction (the score statistic is 0 at p);
+    # enforce that against float error so low <= point <= high always holds.
+    return Interval(point=p, low=min(low, p), high=max(high, p))
 
 
 # --------------------------------------------------------------------------- #
