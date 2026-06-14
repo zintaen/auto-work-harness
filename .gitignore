@@ -1,0 +1,27 @@
+# --- AUTO_WORK operational state (never commit) ---
+.agent-handoff/
+HANDOFF.md
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# --- Test / eval / mutation artifacts ---
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.mutmut-cache
+mutants/
+.coverage
+htmlcov/
+eval-runs/        # multi-seed eval output (regenerate from goldenset)
+*.evalreport.json
+
+# --- OS ---
+.DS_Store
