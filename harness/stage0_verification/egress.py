@@ -73,7 +73,7 @@ def build_iptables_plan(
     for net in allow_subnets:
         plan.append(f"iptables -A OUTPUT -d {net} -j ACCEPT")
     # default-deny: anything not explicitly allowed is dropped and logged
-    plan.append("iptables -A OUTPUT -j LOG --log-prefix \"AWH-EGRESS-DENY: \" --log-level 4")
+    plan.append('iptables -A OUTPUT -j LOG --log-prefix "AWH-EGRESS-DENY: " --log-level 4')
     plan.append("iptables -P OUTPUT DROP")
     plan.append("iptables -P INPUT DROP")
     plan.append("iptables -P FORWARD DROP")

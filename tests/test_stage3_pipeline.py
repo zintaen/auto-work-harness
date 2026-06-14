@@ -46,7 +46,9 @@ def make_worker(fname, content, ok=True, commit=True):
             (Path(wt.path) / fname).write_text(content)
             _git(wt.path, "add", "-A")
             _git(wt.path, "commit", "-qm", f"add {fname}")
-        return WorkerResult(ok=ok, artifact=f"diff for {fname}", summary=f"wrote {fname}", spec="spec")
+        return WorkerResult(
+            ok=ok, artifact=f"diff for {fname}", summary=f"wrote {fname}", spec="spec"
+        )
 
     return worker
 
@@ -114,7 +116,9 @@ class TestGating:
         tasks = [PipelineTask("a", boom), PipelineTask("b", make_worker("b.txt", "B"))]
         report = Pipeline(mgr, PASS).run(tasks)
         statuses = {o.task_id: o.status for o in report.outcomes}
-        assert statuses["a"] == "error" and "kaboom" in next(o.reason for o in report.outcomes if o.task_id == "a")
+        assert statuses["a"] == "error" and "kaboom" in next(
+            o.reason for o in report.outcomes if o.task_id == "a"
+        )
         assert statuses["b"] == "merged"  # one worker's crash doesn't sink the others
 
 
@@ -151,7 +155,9 @@ class TestRealVerifierIntegration:
 class TestPlan:
     def test_duplicate_ids_rejected(self):
         with pytest.raises(ValueError, match="duplicate"):
-            plan([PipelineTask("x", make_worker("a", "a")), PipelineTask("x", make_worker("b", "b"))])
+            plan(
+                [PipelineTask("x", make_worker("a", "a")), PipelineTask("x", make_worker("b", "b"))]
+            )
 
     def test_summary(self, repo):
         mgr = WorktreeManager(repo)

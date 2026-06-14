@@ -35,29 +35,47 @@ _WRITE_INDICATORS = (">", ">>", "tee", "sed", "truncate", "chmod", "dd", "mv", "
 _DEFAULT_DENY_COMMANDS: tuple[str, ...] = (
     r"\brm\s+-[a-z]*r[a-z]*f[a-z]*\s+(/|~|\$HOME|\*|\.)(\s|$)",  # rm -rf / ~ * .
     r"\brm\s+-[a-z]*f[a-z]*r[a-z]*\s+(/|~|\$HOME|\*|\.)(\s|$)",  # rm -fr ...
-    r"\bgit\s+push\b[^\n]*\s(--force\b|-f\b)",                    # force push
-    r"\bgit\s+push\b[^\n]*\s\+",                                  # refspec force (+branch)
-    r"\bgit\s+reset\s+--hard\b[^\n]*\borigin/",                   # hard reset to remote
-    r"\bgit\s+clean\s+-[a-z]*f[a-z]*d",                           # git clean -fd
-    r"\bgit\s+branch\s+-D\b",                                     # force-delete branch
-    r":\s*\(\s*\)\s*\{\s*:\s*\|\s*:",                             # fork bomb :(){ :|:& };:
-    r"\bmkfs\b",                                                   # format filesystem
-    r"\bdd\b[^\n]*\bof=/dev/",                                    # dd to a device
-    r">\s*/dev/sd[a-z]",                                          # redirect to a disk
-    r"\bchmod\s+-[a-z]*R[a-z]*\s+0*777\s+/",                      # chmod -R 777 /
-    r"\bsudo\b",                                                   # privilege escalation
-    r"\bDROP\s+(DATABASE|TABLE|SCHEMA)\b",                        # destructive SQL
+    r"\bgit\s+push\b[^\n]*\s(--force\b|-f\b)",  # force push
+    r"\bgit\s+push\b[^\n]*\s\+",  # refspec force (+branch)
+    r"\bgit\s+reset\s+--hard\b[^\n]*\borigin/",  # hard reset to remote
+    r"\bgit\s+clean\s+-[a-z]*f[a-z]*d",  # git clean -fd
+    r"\bgit\s+branch\s+-D\b",  # force-delete branch
+    r":\s*\(\s*\)\s*\{\s*:\s*\|\s*:",  # fork bomb :(){ :|:& };:
+    r"\bmkfs\b",  # format filesystem
+    r"\bdd\b[^\n]*\bof=/dev/",  # dd to a device
+    r">\s*/dev/sd[a-z]",  # redirect to a disk
+    r"\bchmod\s+-[a-z]*R[a-z]*\s+0*777\s+/",  # chmod -R 777 /
+    r"\bsudo\b",  # privilege escalation
+    r"\bDROP\s+(DATABASE|TABLE|SCHEMA)\b",  # destructive SQL
     r"\bTRUNCATE\s+TABLE\b",
-    r"(curl|wget)\b[^\n|]*\|\s*(sudo\s+)?(ba)?sh\b",             # curl … | sh
+    r"(curl|wget)\b[^\n|]*\|\s*(sudo\s+)?(ba)?sh\b",  # curl … | sh
 )
 
 # Default secret/credential path signatures (glob form; matched on full path and basename).
 _DEFAULT_DENY_PATHS: tuple[str, ...] = (
-    "*.env", ".env", ".env.*", "*/.env", "*/.env.*",
-    "*/secrets/*", "secrets/*", "*.pem", "*.key", "*.p12", "*.pfx",
-    "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", "*/.ssh/*",
-    "*/.aws/credentials", "*/.aws/config", "*.netrc", ".netrc",
-    "*credentials.json", "*service-account*.json", "*.kdbx",
+    "*.env",
+    ".env",
+    ".env.*",
+    "*/.env",
+    "*/.env.*",
+    "*/secrets/*",
+    "secrets/*",
+    "*.pem",
+    "*.key",
+    "*.p12",
+    "*.pfx",
+    "id_rsa",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+    "*/.ssh/*",
+    "*/.aws/credentials",
+    "*/.aws/config",
+    "*.netrc",
+    ".netrc",
+    "*credentials.json",
+    "*service-account*.json",
+    "*.kdbx",
 )
 
 # Read-only commands that *view* a file — used to extend secret-path denial to Bash.
@@ -100,9 +118,7 @@ class Policy:
     @classmethod
     def from_dict(cls, data: dict) -> Policy:
         return cls(
-            deny_command_patterns=list(
-                data.get("deny_command_patterns", _DEFAULT_DENY_COMMANDS)
-            ),
+            deny_command_patterns=list(data.get("deny_command_patterns", _DEFAULT_DENY_COMMANDS)),
             deny_path_globs=list(data.get("deny_path_globs", _DEFAULT_DENY_PATHS)),
             deny_write_globs=list(data.get("deny_write_globs", [])),
             extra_command_patterns=list(data.get("extra_command_patterns", [])),

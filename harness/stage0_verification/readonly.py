@@ -182,9 +182,7 @@ def lock_tests(
     return report
 
 
-def write_policy_augmentation(
-    root: str | os.PathLike[str], write_globs: list[str]
-) -> Path:
+def write_policy_augmentation(root: str | os.PathLike[str], write_globs: list[str]) -> Path:
     """Merge ``deny_write_globs`` into ``<root>/.awh/policy.json`` so the hook also
     refuses edits to the locked files. Returns the policy path."""
     root_path = Path(root).resolve()

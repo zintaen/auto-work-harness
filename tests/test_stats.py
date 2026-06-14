@@ -57,8 +57,8 @@ class TestPassHatK:
         assert pass_hat_k(5, 5, 2) == 1.0
 
     def test_known_values(self):
-        assert pass_hat_k(5, 2, 2) == pytest.approx(0.1)   # C(2,2)/C(5,2)=1/10
-        assert pass_hat_k(4, 2, 1) == pytest.approx(0.5)   # C(2,1)/C(4,1)=2/4
+        assert pass_hat_k(5, 2, 2) == pytest.approx(0.1)  # C(2,2)/C(5,2)=1/10
+        assert pass_hat_k(4, 2, 1) == pytest.approx(0.5)  # C(2,1)/C(4,1)=2/4
 
     def test_fewer_correct_than_k_is_zero(self):
         assert pass_hat_k(5, 1, 2) == 0.0

@@ -81,7 +81,9 @@ class WorktreeManager:
 
     def _branch_exists(self, branch: str) -> bool:
         return (
-            self._git("rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", check=False).returncode
+            self._git(
+                "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", check=False
+            ).returncode
             == 0
         )
 
@@ -123,9 +125,7 @@ class WorktreeManager:
             except ValueError:
                 return  # not one of ours (e.g. the main worktree)
             branch = cur.get("branch", "").replace("refs/heads/", "")
-            items.append(
-                Worktree(task_id=p.name, path=p, branch=branch, head=cur.get("HEAD", ""))
-            )
+            items.append(Worktree(task_id=p.name, path=p, branch=branch, head=cur.get("HEAD", "")))
 
         for line in out.splitlines():
             if not line.strip():
@@ -161,9 +161,11 @@ class WorktreeManager:
         if proc.returncode == 0:
             return MergeResult(True, branch, [], f"merged {branch} into {into}")
         conflicts = [
-            ln for ln in self._git(
+            ln
+            for ln in self._git(
                 "diff", "--name-only", "--diff-filter=U", check=False
-            ).stdout.splitlines() if ln
+            ).stdout.splitlines()
+            if ln
         ]
         self._git("merge", "--abort", check=False)
         return MergeResult(False, branch, conflicts, f"CONFLICT merging {branch}: {conflicts}")

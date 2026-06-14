@@ -97,4 +97,6 @@ def blend(
 
     blended = sum(present_w[k] * components[k] for k in components) / wsum
     used = {k: present_w[k] / wsum for k in components}
-    return ScoreBreakdown(blended=blended, components=components, weights_used=used, threshold=threshold)
+    return ScoreBreakdown(
+        blended=blended, components=components, weights_used=used, threshold=threshold
+    )

@@ -57,7 +57,7 @@ class TestLoader:
 
 class TestRunTaskReal:
     def test_deterministic_pass(self, tmp_path):
-        t = GoldenTask(id="p", cmd="python3 -c \"import sys;sys.exit(0)\"")
+        t = GoldenTask(id="p", cmd='python3 -c "import sys;sys.exit(0)"')
         assert run_task(t, 0, tmp_path) is True
 
     def test_seed_dependent(self, tmp_path):
@@ -74,7 +74,7 @@ class TestRunTaskReal:
             cmd="python3 -c \"print('work')\"",  # always rc 0
             check="python3 -c \"import os,sys;sys.exit(0 if int(os.environ['AWH_SEED'])%2 else 1)\"",
         )
-        assert run_task(t, 1, tmp_path) is True   # check passes on odd seed
+        assert run_task(t, 1, tmp_path) is True  # check passes on odd seed
         assert run_task(t, 2, tmp_path) is False  # check fails on even seed
 
     def test_timeout_counts_as_fail(self, tmp_path):
@@ -138,7 +138,9 @@ class TestReportSerialization:
 def _report(label, pairs, k=5):
     # pairs: {task_id: (n, c, weight)}
     tasks = [
-        TaskResult(task_id=tid, weight=w, seeds=list(range(n)), passes=[True] * c + [False] * (n - c))
+        TaskResult(
+            task_id=tid, weight=w, seeds=list(range(n)), passes=[True] * c + [False] * (n - c)
+        )
         for tid, (n, c, w) in pairs.items()
     ]
     return EvalReport(tasks=tasks, seeds=list(range(k)), k=k, label=label)
@@ -160,7 +162,7 @@ class TestGate:
 
     def test_threshold_tolerates_noise(self):
         base = _report("base", {"a": (10, 8, 1)})  # 0.8
-        cur = _report("cur", {"a": (10, 7, 1)})    # 0.7, drop 0.1
+        cur = _report("cur", {"a": (10, 7, 1)})  # 0.7, drop 0.1
         assert not gate(cur, base, max_regression=0.05).ok
         assert gate(cur, base, max_regression=0.15).ok  # within tolerated noise
 

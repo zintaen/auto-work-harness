@@ -158,13 +158,23 @@ class Pipeline:
         for task, wt, result in spawned:
             if wt is None or isinstance(result, str):
                 report.outcomes.append(
-                    TaskOutcome(task.id, "error", reason=str(result), branch=self.manager.branch_for(task.id))
+                    TaskOutcome(
+                        task.id,
+                        "error",
+                        reason=str(result),
+                        branch=self.manager.branch_for(task.id),
+                    )
                 )
                 continue
             branch = wt.branch
             if not result.ok:
                 report.outcomes.append(
-                    TaskOutcome(task.id, "worker_failed", reason=result.summary or "worker returned ok=False", branch=branch)
+                    TaskOutcome(
+                        task.id,
+                        "worker_failed",
+                        reason=result.summary or "worker returned ok=False",
+                        branch=branch,
+                    )
                 )
                 self._maybe_keep(task.id)
                 continue
@@ -175,9 +185,12 @@ class Pipeline:
             if not passed:
                 report.outcomes.append(
                     TaskOutcome(
-                        task.id, "verify_failed",
-                        reason=getattr(vr, "summary", "") or getattr(vr, "error", "verifier rejected"),
-                        verifier_score=score, branch=branch,
+                        task.id,
+                        "verify_failed",
+                        reason=getattr(vr, "summary", "")
+                        or getattr(vr, "error", "verifier rejected"),
+                        verifier_score=score,
+                        branch=branch,
                     )
                 )
                 self._maybe_keep(task.id)
@@ -185,12 +198,20 @@ class Pipeline:
 
             merge = self.manager.merge(task.id, into=self.integration_branch)
             if merge.ok:
-                report.outcomes.append(TaskOutcome(task.id, "merged", verifier_score=score, branch=branch))
+                report.outcomes.append(
+                    TaskOutcome(task.id, "merged", verifier_score=score, branch=branch)
+                )
                 if self.cleanup_merged:
                     self.manager.remove(task.id, force=True, delete_branch=True)
             else:
                 report.outcomes.append(
-                    TaskOutcome(task.id, "conflict", reason=merge.message, verifier_score=score, branch=branch)
+                    TaskOutcome(
+                        task.id,
+                        "conflict",
+                        reason=merge.message,
+                        verifier_score=score,
+                        branch=branch,
+                    )
                 )
                 self._maybe_keep(task.id)
         return report

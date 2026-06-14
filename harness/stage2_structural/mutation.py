@@ -25,7 +25,13 @@ from pathlib import Path
 __all__ = ["Mutant", "MutationReport", "mutate_source", "run_mutation"]
 
 # operator -> replacement (single, opinionated mutant per site)
-_BINOP = {ast.Add: ast.Sub, ast.Sub: ast.Add, ast.Mult: ast.Div, ast.Div: ast.Mult, ast.Mod: ast.Mult}
+_BINOP = {
+    ast.Add: ast.Sub,
+    ast.Sub: ast.Add,
+    ast.Mult: ast.Div,
+    ast.Div: ast.Mult,
+    ast.Mod: ast.Mult,
+}
 _CMPOP = {
     ast.Lt: ast.GtE,
     ast.LtE: ast.Gt,
@@ -86,9 +92,7 @@ class _Mutator(ast.NodeTransformer):
         if isinstance(node.value, bool):
             if self._site(f"Constant {node.value}->{not node.value}"):
                 return ast.copy_location(ast.Constant(value=not node.value), node)
-        elif isinstance(node.value, int) and self._site(
-            f"Constant {node.value}->{node.value + 1}"
-        ):
+        elif isinstance(node.value, int) and self._site(f"Constant {node.value}->{node.value + 1}"):
             return ast.copy_location(ast.Constant(value=node.value + 1), node)
         return node
 

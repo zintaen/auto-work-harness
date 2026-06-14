@@ -65,11 +65,23 @@ def code_review_rubric() -> Rubric:
     """Default rubric for reviewing a code diff against a spec."""
     return Rubric(
         criteria=[
-            Criterion("spec_adherence", "Implements exactly what the task/spec requires.", 2.0, required=True),
+            Criterion(
+                "spec_adherence",
+                "Implements exactly what the task/spec requires.",
+                2.0,
+                required=True,
+            ),
             Criterion("correctness", "Logic is correct; edge cases handled.", 2.0, required=True),
             Criterion("no_scope_creep", "No unrelated or speculative changes.", 1.0),
-            Criterion("test_quality", "Tests are meaningful, not tautological; cover the change.", 1.5),
-            Criterion("security", "No secret leakage, injection, or unsafe ops introduced.", 1.5, required=True),
+            Criterion(
+                "test_quality", "Tests are meaningful, not tautological; cover the change.", 1.5
+            ),
+            Criterion(
+                "security",
+                "No secret leakage, injection, or unsafe ops introduced.",
+                1.5,
+                required=True,
+            ),
         ],
         pass_threshold=0.75,
     )

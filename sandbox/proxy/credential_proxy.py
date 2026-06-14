@@ -110,7 +110,10 @@ def handle(client: socket.socket, allow: set[str]) -> None:
 def main() -> int:
     allow = load_allowlist(ALLOWLIST_FILE)
     if not allow:
-        print(f"[awh-proxy] refusing to start with an EMPTY allowlist ({ALLOWLIST_FILE})", file=sys.stderr)
+        print(
+            f"[awh-proxy] refusing to start with an EMPTY allowlist ({ALLOWLIST_FILE})",
+            file=sys.stderr,
+        )
         return 1
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

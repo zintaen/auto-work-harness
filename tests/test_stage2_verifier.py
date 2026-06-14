@@ -49,7 +49,9 @@ class TestParseJudgment:
         import json
 
         rub = Rubric([Criterion("a", weight=1.0), Criterion("b", weight=3.0)], pass_threshold=0.2)
-        text = json.dumps(_judgment({"a": {"score": 1.0, "pass": True}, "b": {"score": 0.0, "pass": False}}))
+        text = json.dumps(
+            _judgment({"a": {"score": 1.0, "pass": True}, "b": {"score": 0.0, "pass": False}})
+        )
         res = parse_judgment(text, rub)
         assert res.overall_score == pytest.approx(0.25)  # (1*1 + 3*0)/4
         assert res.passed  # 0.25 >= 0.2

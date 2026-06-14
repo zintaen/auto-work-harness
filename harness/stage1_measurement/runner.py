@@ -216,7 +216,9 @@ def evaluate(
     results: list[TaskResult] = []
     for task in tasks:
         passes = [run_task(task, s, base, runner=runner) for s in seeds]
-        results.append(TaskResult(task_id=task.id, weight=task.weight, seeds=list(seeds), passes=passes))
+        results.append(
+            TaskResult(task_id=task.id, weight=task.weight, seeds=list(seeds), passes=passes)
+        )
     return EvalReport(tasks=results, seeds=list(seeds), k=k, label=label)
 
 

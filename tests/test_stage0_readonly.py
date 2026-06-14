@@ -47,9 +47,7 @@ class TestChmodLayer:
 
     def test_hidden_mode_seals_scoring(self, tmp_path):
         _make_tree(tmp_path)
-        report = readonly.lock_tests(
-            tmp_path, scoring_globs=("score*.py",), hidden=True
-        )
+        report = readonly.lock_tests(tmp_path, scoring_globs=("score*.py",), hidden=True)
         assert "score_secret.py" in report.hidden
         # 0o000 -> unreadable
         assert readonly.verify_unwritable(tmp_path / "score_secret.py")
@@ -96,7 +94,10 @@ class TestDenyWritePolicy:
         assert evaluate_event(ev, self._pol()).block
 
     def test_bash_sed_inplace_test_blocked(self):
-        ev = {"tool_name": "Bash", "tool_input": {"command": "sed -i 's/assert/pass#/' test_core.py"}}
+        ev = {
+            "tool_name": "Bash",
+            "tool_input": {"command": "sed -i 's/assert/pass#/' test_core.py"},
+        }
         assert evaluate_event(ev, self._pol()).block
 
     def test_bash_read_test_allowed(self):
