@@ -1,0 +1,7 @@
+{
+  "_comment": "Stage-0 PreToolUse policy for this repo (loaded by the deny hook). The defaults already block destructive commands + secret reads/exfil; here we additionally make the test suite read-only during agent runs so a model cannot edit a test to make code 'pass' (ImpossibleBench). Reads of tests stay allowed so they can run.",
+  "deny_write_globs": [
+    "tests/*",
+    "tests/**"
+  ]
+}

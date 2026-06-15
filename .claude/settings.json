@@ -1,0 +1,49 @@
+{
+  "_comment": "Stage-0 deterministic gates, dogfooded on auto-work-harness itself. Hook commands are repo-relative (Claude Code runs from the repo root). The Stop hook auto-discovers .awh/gate.sh; the PreToolUse hook auto-discovers .awh/policy.json. Exit code 2 from a hook blocks the action and returns stderr to the model.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read|Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 harness/stage0_verification/hooks/pretooluse_deny.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 harness/stage0_verification/hooks/posttooluse_format.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 harness/stage0_verification/hooks/stop_gate.py"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 harness/stage0_verification/hooks/stop_gate.py"
+          }
+        ]
+      }
+    ]
+  }
+}

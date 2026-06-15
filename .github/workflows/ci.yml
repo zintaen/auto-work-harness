@@ -21,17 +21,14 @@ jobs:
       - name: Tests (incl. Hypothesis PBT + real-repo worktree tests)
         run: python -m pytest -q
 
-      # Stage 1 — golden-set eval gate. Block the PR on regression vs the committed
-      # baseline (regression, not absolute threshold — the KTH discipline).
+      # Stage 1 — golden-set eval gate on the harness's OWN self-eval set. Block the
+      # PR on regression vs the committed baseline (regression, not absolute threshold
+      # — the KTH discipline). Regenerate the baseline with:
+      #   awh eval goldenset/self.yaml --seeds 3 --out eval-baseline.json
       - name: Eval gate (block on regression)
         run: |
-          if [ -f eval-baseline.json ]; then
-            python -m harness.cli eval harness/goldenset/tasks/example_tasks.yaml \
-              --seeds 8 --baseline eval-baseline.json --max-regression 0.05
-          else
-            echo "No eval-baseline.json yet; recording current scores is a manual step."
-            python -m harness.cli eval harness/goldenset/tasks/example_tasks.yaml --seeds 8
-          fi
+          python -m harness.cli eval goldenset/self.yaml \
+            --seeds 3 --baseline eval-baseline.json --max-regression 0.0
 
       # Stage 2 — prove the mutation tester (and the demo suite) are healthy.
       - name: Mutation demo (suite must kill 100% of mutants)

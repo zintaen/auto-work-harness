@@ -1,0 +1,71 @@
+{
+  "label": "baseline",
+  "created": 1781512891.999942,
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "k": 3,
+  "aggregate": {
+    "n_tasks": 4,
+    "macro_pass_at_1": 1.0,
+    "weighted_pass_at_1": 1.0,
+    "mean_pass_hat_3": 1.0,
+    "fully_consistent_tasks": 4
+  },
+  "tasks": [
+    {
+      "task_id": "unit-suite",
+      "weight": 3.0,
+      "n": 3,
+      "c": 3,
+      "pass_at_1": 1.0,
+      "pass_at_3": 1.0,
+      "pass_hat_3": 1.0,
+      "wilson95": [
+        0.438503,
+        1.0
+      ]
+    },
+    {
+      "task_id": "lint-clean",
+      "weight": 1.0,
+      "n": 3,
+      "c": 3,
+      "pass_at_1": 1.0,
+      "pass_at_3": 1.0,
+      "pass_hat_3": 1.0,
+      "wilson95": [
+        0.438503,
+        1.0
+      ]
+    },
+    {
+      "task_id": "format-clean",
+      "weight": 1.0,
+      "n": 3,
+      "c": 3,
+      "pass_at_1": 1.0,
+      "pass_at_3": 1.0,
+      "pass_hat_3": 1.0,
+      "wilson95": [
+        0.438503,
+        1.0
+      ]
+    },
+    {
+      "task_id": "mutation-demo",
+      "weight": 1.0,
+      "n": 3,
+      "c": 3,
+      "pass_at_1": 1.0,
+      "pass_at_3": 1.0,
+      "pass_hat_3": 1.0,
+      "wilson95": [
+        0.438503,
+        1.0
+      ]
+    }
+  ]
+}

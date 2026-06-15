@@ -1,0 +1,24 @@
+# auto-work-harness's OWN golden set (dogfooding Stage 1 on itself).
+# Deterministic checks -> every seed passes -> pass@1 = pass^k = 1.0. The point is
+# the CI regression gate: if a change drops any of these, `awh eval --baseline` fails.
+# Run from the repo root:  awh eval goldenset/self.yaml --seeds 3 --baseline eval-baseline.json
+tasks:
+  - id: unit-suite
+    description: full pytest suite passes (Stage 0-3 + CLI)
+    cmd: "python3 -m pytest -q"
+    weight: 3.0
+
+  - id: lint-clean
+    description: ruff reports no issues
+    cmd: "ruff check ."
+    weight: 1.0
+
+  - id: format-clean
+    description: ruff format leaves nothing to reformat
+    cmd: "ruff format --check ."
+    weight: 1.0
+
+  - id: mutation-demo
+    description: the demo suite kills 100% of mutants (Stage 2 self-check)
+    cmd: "python3 scripts/mutation_demo.py"
+    weight: 1.0
