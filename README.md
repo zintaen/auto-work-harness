@@ -49,6 +49,11 @@ make install          # pip install -e ".[dev]"  (pytest, hypothesis, ruff)
 make verify           # ruff + full test suite  (this is the AUTO_WORK gate)
 ```
 
+**To put the harness to work in a project, follow [`ADOPTING.md`](ADOPTING.md)** —
+the step-by-step adoption guide (Python/Node/Rust). This repo is dogfooded on
+itself: see `.claude/settings.json`, `.awh/`, `goldenset/self.yaml`, and the
+committed `eval-baseline.json`.
+
 ## Try each stage
 
 ```bash
