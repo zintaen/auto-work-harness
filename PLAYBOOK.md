@@ -1,7 +1,7 @@
-# Field Playbook — adopting auto-work-harness on a new repo
+# Field Playbook — adopting auto-work-harness on an existing repo
 
-The opinionated, battle-tested sequence, distilled from real adoptions
-(`@cyberskill/shared`, `gam`). For the full per-stage reference see
+The opinionated, battle-tested sequence for hardening a repo that **already
+exists**, distilled from real adoptions (`@cyberskill/shared`, `gam`). For the full per-stage reference see
 [`ADOPTING.md`](ADOPTING.md); this is the "what to actually do, in order, and the
 traps we hit" version. Work top to bottom.
 

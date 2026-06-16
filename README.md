@@ -29,6 +29,25 @@ component-by-component trace to the source recommendations.
 | a **release/npm repo** to protect | **[`recipes/release-safety/`](recipes/release-safety/README.md)** — downgrade guard + CI tripwire | — |
 | to ask **"is it fine-tuned enough?"** | `awh maturity` — convergence verdict over adoptions | — |
 
+### New project vs existing repo — same harness, one difference
+
+Both paths install the **same** Stage 0–3 gates (`install.sh`), run the **same**
+`awh eval` regression gate, and feed the **same** `awh maturity` tracker. The only
+real difference is where the golden set comes from and which way it starts:
+
+| | **New project** (greenfield) | **Existing repo** (harden) |
+|---|---|---|
+| Guide | [`NEW_PROJECT.md`](NEW_PROJECT.md) | [`PLAYBOOK.md`](PLAYBOOK.md) + [`ADOPTING.md`](ADOPTING.md) |
+| Golden set comes from | the SRD's acceptance criteria, made executable | the repo's real lint / typecheck / test |
+| Baseline starts | **RED** (~0 — features don't exist yet) | **GREEN** (repo already passes) |
+| The job | burn the score **up** to 1.0 | **hold** the line — block regressions |
+| Anti-cheat | held-out `tests_acceptance/**` sealed (`awh lock --hidden`) | lock `tests/**` read-only |
+| Mode | spec-completion | ratchet / no-regression |
+
+Everything else — the PreToolUse deny hooks, the Stop evidence-gate, mutation,
+worktrees, release-safety, maturity — is **identical**. Pick the row, follow that
+guide; the gates don't change.
+
 ## The four stages
 
 **Stage 0 — deterministic gates & containment** (`harness/stage0_verification/`, `sandbox/`)
