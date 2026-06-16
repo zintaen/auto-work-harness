@@ -5,6 +5,10 @@ The opinionated, battle-tested sequence, distilled from real adoptions
 [`ADOPTING.md`](ADOPTING.md); this is the "what to actually do, in order, and the
 traps we hit" version. Work top to bottom.
 
+> Starting a **brand-new project** from a PRD/SRD instead of hardening an existing
+> repo? Use [`NEW_PROJECT.md`](NEW_PROJECT.md) — it derives the golden set from the
+> SRD's acceptance criteria. Come back here for the per-step gotchas.
+
 ## The 6-step sequence
 
 0. **Pre-flight** — the repo must already be green
@@ -13,6 +17,7 @@ traps we hit" version. Work top to bottom.
 3. **Baseline** — on the native host
 4. **Release safety** — only if it publishes
 5. **Commit + verify CI**
+6. **Record the adoption** — feed `awh maturity`
 
 ---
 
@@ -125,6 +130,22 @@ overrides:
   postcss: '>=8.5.10'
   uuid: '>=14.0.0'
 ```
+
+### 6. Record the adoption (maturity)
+
+Log one line so the harness can tell you when it has stopped needing changes:
+
+```bash
+# clean adoption (nothing in the harness had to change):
+awh maturity log --repo CyberSkill/<name> --outcome green
+
+# this adoption forced a harness change (fold it back, then record why):
+awh maturity log --repo CyberSkill/<name> --category recipe:<x> --note "what it taught us"
+```
+
+Then check convergence: `awh maturity`. When you hit **READY** (≥3 clean
+adoptions in a row, recent evolution rate ≤20%), the harness is fine-tuned
+enough to use as-is. Until then it's still learning from each new repo.
 
 ---
 

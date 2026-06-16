@@ -9,6 +9,7 @@ CI job, or an AUTO_WORK gate script:
     awh eval <tasks>             Stage 1  multi-seed eval + regression gate
     awh mutate <file> --test-cmd Stage 2  mutation score for a test suite
     awh worktree <op> ...        Stage 3  manage per-task worktrees
+    awh maturity [report|log]    Meta     is the harness fine-tuned enough yet?
 """
 
 from __future__ import annotations
@@ -114,6 +115,62 @@ def _cmd_worktree(args) -> int:
     return 0
 
 
+def _harness_version(root: Path) -> str:
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    except Exception:
+        pass
+    return __version__
+
+
+def _cmd_maturity(args) -> int:
+    from harness import maturity
+
+    root = Path(__file__).resolve().parents[1]
+    log_path = Path(args.log) if args.log else root / "evolution-log.jsonl"
+
+    if args.op == "log":
+        if not args.repo:
+            print("maturity log: --repo is required", file=sys.stderr)
+            return 2
+        version = args.version or _harness_version(root)
+        run = maturity.record_run(
+            log_path,
+            repo=args.repo,
+            harness_version=version,
+            outcome=args.outcome,
+            categories=args.category,
+            note=args.note,
+        )
+        flag = "evolution" if run.is_evolution() else "no-change"
+        print(f"recorded {args.repo} @ {version} [{flag}] -> {log_path}")
+        return 0
+
+    report = maturity.summarize(
+        log_path,
+        window=args.window,
+        ready_streak=args.ready_streak,
+        max_rate=args.max_rate,
+    )
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        print(report.summary())
+    # `--gate` turns the report into a CI check (non-zero unless READY).
+    if args.gate and report.verdict != "READY":
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="awh", description="auto-work-harness CLI")
     p.add_argument("--version", action="version", version=f"awh {__version__}")
@@ -164,6 +221,37 @@ def build_parser() -> argparse.ArgumentParser:
     wt.add_argument("--force", action="store_true")
     wt.add_argument("--delete-branch", action="store_true")
     wt.set_defaults(func=_cmd_worktree)
+
+    ma = sub.add_parser(
+        "maturity",
+        help="report/track the harness's own fine-tuning convergence",
+    )
+    ma.add_argument(
+        "op",
+        nargs="?",
+        choices=["report", "log"],
+        default="report",
+        help="report (default) the verdict, or log an adoption run",
+    )
+    ma.add_argument("--repo", help="(log) repo being adopted")
+    ma.add_argument("--version", help="(log) harness version/sha; default: git short HEAD")
+    ma.add_argument(
+        "--outcome", choices=["green", "red", "unknown"], default="unknown",
+    )
+    ma.add_argument(
+        "--category",
+        action="append",
+        default=[],
+        help="(log) evolution category, e.g. recipe:release-safety (repeatable)",
+    )
+    ma.add_argument("--note", default="")
+    ma.add_argument("--log", default=None, help="ledger path (default: <harness>/evolution-log.jsonl)")
+    ma.add_argument("--window", type=int, default=5, help="(report) recent-rate window")
+    ma.add_argument("--ready-streak", type=int, default=3, help="(report) clean adoptions for READY")
+    ma.add_argument("--max-rate", type=float, default=0.2, help="(report) max recent evolution rate for READY")
+    ma.add_argument("--gate", action="store_true", help="(report) exit non-zero unless READY")
+    ma.add_argument("--json", action="store_true", help="(report) emit JSON")
+    ma.set_defaults(func=_cmd_maturity)
     return p
 
 

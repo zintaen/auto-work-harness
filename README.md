@@ -13,9 +13,18 @@ hacking and silent failure far more reliably than any prompt.
 > Design principle (Anthropic, 2026): *"Design for containment at the environment
 > layer first, then steer behavior at the model layer."*
 
-Status: **195 tests passing, ruff-clean.** Pure standard library at the core (no
+Status: **230 tests passing, ruff-clean.** Pure standard library at the core (no
 numpy/scipy) so it runs anywhere the agent runs. See `ROADMAP_MAPPING.md` for the
 component-by-component trace to the source recommendations.
+
+## Start here
+
+| You have… | Follow | Then |
+|-----------|--------|------|
+| a **new project** (PRD + SRD, empty repo) | **[`NEW_PROJECT.md`](NEW_PROJECT.md)** — turn the SRD into an executable golden set and build under gates | `goldenset/new-project.template.yaml` |
+| an **existing repo** to harden | **[`PLAYBOOK.md`](PLAYBOOK.md)** — 6-step field guide (+ [`ADOPTING.md`](ADOPTING.md) per-stage reference) | `ROADMAP_MAPPING.md` |
+| a **release/npm repo** to protect | **[`recipes/release-safety/`](recipes/release-safety/README.md)** — downgrade guard + CI tripwire | — |
+| to ask **"is it fine-tuned enough?"** | `awh maturity` — convergence verdict over adoptions | — |
 
 ## The four stages
 
@@ -84,6 +93,38 @@ python3 -m harness.cli worktree create --repo . --task-id feature-x
    unattended `--dangerously-skip-permissions` run is actually safe.
 4. In CI, the golden-set **eval gate** blocks merges on regression vs. baseline.
 
+## Maturity — is it fine-tuned enough? (`awh maturity`)
+
+The harness *evolves* when adopting a real repo forces a change to the harness
+itself (a new gate, a recipe, a fix). It is **ready** when adopting *new* repos
+stops forcing those changes — an empirical convergence signal, not a gut feeling.
+
+`awh maturity` reads an evolution ledger (`evolution-log.jsonl`, one line per
+adoption) and reports a verdict:
+
+```
+$ awh maturity
+auto-work-harness — maturity / self-evolution
+  adoptions recorded : 3 across 3 repo(s)
+  evolution events   : 2
+  clean streak       : 0 consecutive no-change adoption(s)
+  recent rate        : 67% over last 3
+  VERDICT            : STILL_EVOLVING
+    -> need 3 more clean adoption(s) and rate <= 20% to call it READY.
+```
+
+Record one line per adoption (the last step of `PLAYBOOK.md`):
+
+```
+awh maturity log --repo CyberSkill/foo --outcome green                       # clean
+awh maturity log --repo CyberSkill/bar --category recipe:x --note "why"       # forced a change
+```
+
+`harness_changed` is auto-derived from the harness git sha between runs, so even
+a plain `log` records the curve. **READY** = `--ready-streak` clean adoptions
+(default 3) *and* recent evolution rate ≤ `--max-rate` (default 20%). Use
+`awh maturity --gate` in CI to fail until READY.
+
 ## Repository layout
 
 ```
@@ -97,7 +138,7 @@ harness/
   cli.py                     `awh` entry point
 sandbox/                     devcontainer + iptables, Seatbelt profile, egress proxy
 scripts/mutation_demo.py     end-to-end mutation demonstration (used by CI)
-tests/                       195 tests (unit, Hypothesis PBT, real-repo git tests)
+tests/                       230 tests (unit, Hypothesis PBT, real-repo git tests)
 recipes/                     reusable hardening patterns folded back from real adoptions
   release-safety/            semantic-release downgrade guard (plugin + CI tripwire)
 ```

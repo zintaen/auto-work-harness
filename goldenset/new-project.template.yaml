@@ -1,0 +1,37 @@
+---
+# Greenfield acceptance golden set — copy to <project>/.awh/goldenset.yaml and edit.
+# Derived from your SRD: one `acceptance` test per requirement id (FR-x, NFR-x).
+# Starts RED; the build is done when `awh eval` reports macro_pass_at_1 = 1.0.
+#
+#   awh eval .awh/goldenset.yaml --seeds 1 --out .awh/eval-baseline.json   # capture RED baseline
+#   awh eval .awh/goldenset.yaml --seeds 1 --baseline .awh/eval-baseline.json --max-regression 0.0
+#
+# Replace the pnpm commands with your stack's build/typecheck/lint/test.
+# Deterministic checks => 1 seed is enough; every task has a timeout so a hang is bounded.
+tasks:
+  - id: build
+    description: project builds / compiles
+    cmd: "pnpm build"
+    weight: 1.0
+    timeout_sec: 300
+
+  - id: typecheck
+    description: static types are sound
+    cmd: "pnpm exec tsc --noEmit"
+    weight: 1.0
+    timeout_sec: 240
+
+  - id: lint
+    description: linter reports no errors
+    cmd: "pnpm lint"
+    weight: 1.0
+    timeout_sec: 240
+
+  # The SRD made executable. Point this at the HELD-OUT acceptance suite
+  # (tests_acceptance/**) that the agent cannot read or edit. Weight it heavily so
+  # the eval score tracks real requirement coverage, not plumbing.
+  - id: acceptance
+    description: SRD acceptance criteria pass (held-out end-to-end suite)
+    cmd: "pnpm test:acceptance"
+    weight: 5.0
+    timeout_sec: 600
