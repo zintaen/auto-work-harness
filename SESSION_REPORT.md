@@ -110,3 +110,42 @@ $ pytest tests/test_stage1_runner.py -q
   added; `shared`@3.21.0 with guard; `gam` adopted (baseline refresh pending).
 - No handoff packet needed — no in-flight edits; all working trees were committed
   by you between steps.
+
+---
+
+## Addendum — exhaustive security / edge-case audit (2026-06-16)
+
+A subagent audit read every module for bypasses, silent-wrong-results, and crash
+risks; all findings were fixed and pinned with regression tests
+(`tests/test_audit_hardening.py`). Test count 231 → **267**.
+
+**Security (Stage 0):**
+- policy: closed four bypasses of the read-only/secret deny — `cat<.env` (redirect
+  tokenizing), `./`-prefixed / absolute / `..` paths (path normalization + suffix
+  match), `cp`/`ln`/`rsync` copy-into-protected, and quoted/glob/long-flag `rm`
+  (`rm -rf '/'`, `/*`, `--recursive --force`). Policy parsing now fails safe on a
+  non-object file or a wrong-typed field (no more `list("rm")` disabling containment).
+- egress: the rendered root firewall now validates every domain/IP/subnet (hostname
+  regex + `ipaddress`) before interpolation — a value like `github.com; rm -rf /`
+  is rejected, not executed. Negative self-probe host is chosen out of the allowlist.
+
+**Silent-wrong-result (Stage 1/2):**
+- stats: `wilson_interval` rejects non-finite/≤0 `z`; `two_proportion_power`
+  validates alpha/power and the post-clamp zero-delta divide-by-zero.
+- scorermix / verifier: a non-finite score now fails to **0.0** (was silently
+  clamped to a perfect 1.0); negative blend weights and truthy non-boolean `pass`
+  are rejected.
+- mutation: chained comparisons (`lo < x < hi`) are fully mutated; a file with no
+  mutatable ops reports **N/A** (NaN), not 100%; a syntax error or a test command
+  that fails on clean source raises `MutationError`.
+
+**Robustness (Stage 3 / meta):**
+- worktree: `task_id` is validated (`^[A-Za-z0-9._-]+$`, no `..`/`/`/leading-`-`)
+  before it becomes a path or git ref; `merge` checks the branch exists, restores
+  the prior HEAD in a `finally`, and `_git` has a timeout.
+- pipeline: validates the integration branch exists before spawning workers;
+  post-merge cleanup errors are suppressed so one failure can't abort the run.
+- maturity: a corrupt/partial JSONL line or a forward-compat extra key no longer
+  crashes the ledger read; `window<=0` is clamped.
+- CLI: known user errors (`GoldenSetError`/`WorktreeError`/`MutationError`/
+  `FileNotFoundError`) print `awh: error: …` instead of a traceback.

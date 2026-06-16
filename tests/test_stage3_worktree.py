@@ -107,7 +107,7 @@ class TestLifecycle:
         mgr = WorktreeManager(repo)
         mgr.create("iso")
         env = mgr.write_isolation("iso", base_port=5000)
-        assert 5000 <= int(env["PORT"]) < 6000
+        assert 5000 <= int(env["PORT"]) < 25000  # base_port + crc32 % 20000
         assert (mgr.worktrees_dir / "iso" / ".env.local").exists()
         # port must be DETERMINISTIC (crc32, not salted hash()) across calls
         env2 = mgr.write_isolation("iso", base_port=5000)

@@ -138,6 +138,13 @@ class Pipeline:
 
     def run(self, tasks: list[PipelineTask]) -> PipelineReport:
         plan(tasks)
+        # Fail fast BEFORE spawning workers if the integration branch is missing —
+        # otherwise every worker runs and then the first merge's `checkout` crashes.
+        if tasks and not self.manager._branch_exists(self.integration_branch):
+            raise WorktreeError(
+                f"integration branch {self.integration_branch!r} does not exist — "
+                "create it before running the pipeline"
+            )
         report = PipelineReport()
 
         # Phase 0 — SERIAL worktree creation. `git worktree add` mutates shared .git
@@ -202,7 +209,9 @@ class Pipeline:
                     TaskOutcome(task.id, "merged", verifier_score=score, branch=branch)
                 )
                 if self.cleanup_merged:
-                    self.manager.remove(task.id, force=True, delete_branch=True)
+                    # a failed cleanup must not abort the remaining serialized merges
+                    with contextlib.suppress(WorktreeError):
+                        self.manager.remove(task.id, force=True, delete_branch=True)
             else:
                 report.outcomes.append(
                     TaskOutcome(

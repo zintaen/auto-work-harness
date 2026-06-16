@@ -22,7 +22,13 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-__all__ = ["Mutant", "MutationReport", "mutate_source", "run_mutation"]
+__all__ = ["Mutant", "MutationError", "MutationReport", "mutate_source", "run_mutation"]
+
+
+class MutationError(ValueError):
+    """The target file cannot be mutation-tested — a syntax error in the source, or
+    a test command that does not even pass on the UNMUTATED source."""
+
 
 # operator -> replacement (single, opinionated mutant per site)
 _BINOP = {
@@ -75,10 +81,12 @@ class _Mutator(ast.NodeTransformer):
 
     def visit_Compare(self, node: ast.Compare):
         self.generic_visit(node)
-        if node.ops:
-            repl = _CMPOP.get(type(node.ops[0]))
-            if repl and self._site(f"Compare {type(node.ops[0]).__name__}->{repl.__name__}"):
-                node.ops[0] = repl()
+        # One site PER operator, so a chained compare (lo < x < hi) is fully mutated
+        # — mutating only ops[0] let the middle operator escape every test.
+        for k, op in enumerate(node.ops):
+            repl = _CMPOP.get(type(op))
+            if repl and self._site(f"Compare[{k}] {type(op).__name__}->{repl.__name__}"):
+                node.ops[k] = repl()
         return node
 
     def visit_BoolOp(self, node: ast.BoolOp):
@@ -123,9 +131,14 @@ class MutationReport:
 
     @property
     def score(self) -> float:
-        return self.killed / self.total if self.total else 1.0
+        # total==0 means there were no mutatable operations — test-suite quality is
+        # UNMEASURED, not perfect. Return NaN so a `score >= min_score` gate fails
+        # (and the summary says N/A) rather than silently passing a trivial file at 100%.
+        return self.killed / self.total if self.total else float("nan")
 
     def summary(self) -> str:
+        if self.total == 0:
+            return "mutation score: N/A — no mutatable operations found (0 mutants)"
         s = f"mutation score {self.score:.0%} ({self.killed}/{self.total} killed)"
         if self.survived:
             s += f"; {len(self.survived)} survived (weak tests): " + ", ".join(
@@ -141,6 +154,7 @@ def run_mutation(
     workdir: str | Path | None = None,
     runner=subprocess.run,
     timeout: float = 60.0,
+    require_baseline: bool = True,
 ) -> MutationReport:
     """Mutate ``target_file`` one site at a time, run ``test_cmd``, restore.
 
@@ -149,29 +163,43 @@ def run_mutation(
     tests. Returns a MutationReport; the original file is always restored.
     """
     target = Path(target_file)
-    original = target.read_text()
-    mutants = mutate_source(original)
+    original = target.read_text(encoding="utf-8")
+    try:
+        mutants = mutate_source(original)
+    except SyntaxError as e:
+        raise MutationError(f"cannot mutate {target}: source has a syntax error: {e}") from e
+
+    def _run() -> int:
+        try:
+            return runner(
+                test_cmd,
+                shell=True,
+                cwd=str(workdir) if workdir else None,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            ).returncode
+        except subprocess.TimeoutExpired:
+            return 124  # a hang counts as "killed" (the change broke something)
+
+    # Sanity baseline: the suite must PASS on the unmutated source, else every
+    # mutant is spuriously "killed" and the score is meaningless (a misconfigured
+    # test command, not strong tests). Catches the most common mutation footgun.
+    if require_baseline and _run() != 0:
+        raise MutationError(
+            f"test command {test_cmd!r} fails on the UNMUTATED source — fix the "
+            "suite/command before mutation testing (mutants would be spuriously killed)."
+        )
+
     killed = 0
     survived: list[Mutant] = []
     try:
         for m in mutants:
-            target.write_text(m.source)
-            try:
-                proc = runner(
-                    test_cmd,
-                    shell=True,
-                    cwd=str(workdir) if workdir else None,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                )
-                rc = proc.returncode
-            except subprocess.TimeoutExpired:
-                rc = 124  # a hang counts as "killed" (the change broke something)
-            if rc != 0:
+            target.write_text(m.source, encoding="utf-8")
+            if _run() != 0:
                 killed += 1
             else:
                 survived.append(m)
     finally:
-        target.write_text(original)
+        target.write_text(original, encoding="utf-8")
     return MutationReport(total=len(mutants), killed=killed, survived=survived)

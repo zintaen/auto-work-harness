@@ -13,6 +13,7 @@ score still blends deterministic+judge in the right 2:1 proportion.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -22,7 +23,13 @@ DEFAULT_WEIGHTS = {"deterministic": 0.6, "judge": 0.3, "human": 0.1}
 
 
 def _clamp(x: float) -> float:
-    return max(0.0, min(1.0, float(x)))
+    # A non-finite score (NaN/inf from a broken upstream scorer) must fail toward 0,
+    # NOT 1.0 — `max(0, min(1, nan))` evaluates to 1.0 and would silently turn a
+    # broken scorer into a perfect pass. Treat it as the worst score instead.
+    x = float(x)
+    if not math.isfinite(x):
+        return 0.0
+    return max(0.0, min(1.0, x))
 
 
 @dataclass
@@ -72,6 +79,8 @@ def blend(
         ValueError: if no component is provided (a blend of nothing is meaningless).
     """
     w = weights or DEFAULT_WEIGHTS
+    if any(v < 0 for v in w.values()):
+        raise ValueError("blend() weights must be non-negative")
     components: dict[str, float] = {}
     if deterministic is not None:
         det = (

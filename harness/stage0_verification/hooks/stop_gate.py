@@ -25,6 +25,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from harness.stage0_verification.config import find_gate_command  # noqa: E402
+from harness.stage1_measurement.runner import _safe_run  # noqa: E402
 
 _MAX_OUTPUT = 4000  # chars of gate output to feed back
 
@@ -37,11 +38,15 @@ def main(
     stdin_text: str,
     *,
     cwd: str | None = None,
-    runner=subprocess.run,
+    runner=_safe_run,
+    timeout: float = 900.0,
 ) -> tuple[int, str, str]:
     """Return (exit_code, stdout, stderr).
 
     ``runner`` is injectable so tests can drive the gate without spawning processes.
+    Defaults to the process-group-isolating runner with a timeout so a hung gate
+    (a test that waits on stdin, or a watcher holding the output pipe) can't wedge
+    the turn forever — the same failure mode that bit the Stage-1 eval.
     """
     cwd = cwd or os.getcwd()
     try:
@@ -58,13 +63,24 @@ def main(
         # No gate configured: nothing to enforce, allow stop.
         return 0, "", ""
 
-    proc = runner(
-        gate,
-        shell=True,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        proc = runner(
+            gate,
+            shell=True,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return (
+            2,
+            "",
+            (
+                f"Stop blocked: evidence gate `{gate}` did not finish within {timeout:.0f}s "
+                "(a hung test or watcher). Make the checks terminate, then try again."
+            ),
+        )
     out = (proc.stdout or "") + (proc.stderr or "")
     if proc.returncode == 0:
         return 0, "", ""

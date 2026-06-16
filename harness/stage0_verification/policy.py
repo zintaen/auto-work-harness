@@ -26,6 +26,7 @@ this gate stops the lazy/obvious failure fast; the sandbox stops the rest.
 from __future__ import annotations
 
 import fnmatch
+import posixpath
 import re
 from dataclasses import dataclass, field
 
@@ -35,16 +36,32 @@ __all__ = ["Decision", "Policy", "default_policy", "evaluate_event"]
 _FILE_TOOLS = ("Read", "Edit", "Write", "NotebookEdit", "MultiEdit")
 # Tools that MODIFY a file (subset of _FILE_TOOLS) — subject to read-only/deny-write rules.
 _WRITE_TOOLS = ("Edit", "Write", "NotebookEdit", "MultiEdit")
-# Shell tokens that indicate a command writes/mutates a target path.
-_WRITE_INDICATORS = (">", ">>", "tee", "sed", "truncate", "chmod", "dd", "mv", "rm", "install")
+# Shell tokens that indicate a command writes/mutates a target path. Includes the
+# copy/link verbs (cp/ln/rsync/install) — copying INTO a read-only path is a write.
+_WRITE_INDICATORS = (
+    ">",
+    ">>",
+    "tee",
+    "sed",
+    "truncate",
+    "chmod",
+    "dd",
+    "mv",
+    "rm",
+    "cp",
+    "ln",
+    "rsync",
+    "install",
+)
 
 # Default destructive-command signatures (case-insensitive, matched on the command string).
 _DEFAULT_DENY_COMMANDS: tuple[str, ...] = (
     # recursive+force rm (flags contiguous OR split: -rf, -fr, -r -f) targeting a
     # dangerous root. Absolute/system dirs may be followed by "/" (e.g. /home/user);
     # but "." and "*" must be followed by space/end so "./build" stays allowed.
-    r"\brm\b(?=[^\n]*\s-\w*r)(?=[^\n]*\s-\w*f)[^\n]*\s"
+    r"\brm\b(?=[^\n]*\s(?:-\w*r|--recursive))(?=[^\n]*\s(?:-\w*f|--force))[^\n]*\s"
     r"(?:(/|~|\$HOME|/etc|/usr|/var|/bin|/lib|/boot|/sys|/proc|/opt|/home)(\s|/|$)"
+    r"|/\*"
     r"|(\*|\.)(\s|$))",
     r"\bfind\s+(/|~|\$HOME)[^\n]*-(delete|exec\s+rm)\b",  # find / ... -delete / -exec rm
     r"\bgit\s+push\b[^\n]*\s(--force\b|-f\b)",  # force push
@@ -159,12 +176,24 @@ class Policy:
 
     @classmethod
     def from_dict(cls, data: dict) -> Policy:
+        # Fail safe: a non-object policy, or a field that isn't a list[str], falls
+        # back to the strict default for THAT field rather than silently disabling
+        # containment (e.g. a bare string "rm" must not become list("rm")=['r','m']).
+        if not isinstance(data, dict):
+            return cls()
+
+        def _str_list(key: str, default) -> list[str]:
+            v = data.get(key, default)
+            if not isinstance(v, list) or not all(isinstance(x, str) for x in v):
+                return list(default)
+            return list(v)
+
         return cls(
-            deny_command_patterns=list(data.get("deny_command_patterns", _DEFAULT_DENY_COMMANDS)),
-            deny_path_globs=list(data.get("deny_path_globs", _DEFAULT_DENY_PATHS)),
-            deny_write_globs=list(data.get("deny_write_globs", [])),
-            extra_command_patterns=list(data.get("extra_command_patterns", [])),
-            extra_path_globs=list(data.get("extra_path_globs", [])),
+            deny_command_patterns=_str_list("deny_command_patterns", _DEFAULT_DENY_COMMANDS),
+            deny_path_globs=_str_list("deny_path_globs", _DEFAULT_DENY_PATHS),
+            deny_write_globs=_str_list("deny_write_globs", []),
+            extra_command_patterns=_str_list("extra_command_patterns", []),
+            extra_path_globs=_str_list("extra_path_globs", []),
         )
 
 
@@ -173,19 +202,43 @@ def default_policy() -> Policy:
     return Policy()
 
 
-def _path_matches(path: str, globs: list[str]) -> str | None:
-    """Return the first glob that matches ``path`` (full or basename), else None."""
+# Split a shell command into tokens. Includes redirection operators (< > ) so that
+# `cat<.env` / `echo x>tests/y` tokenize their target path out (a known evasion).
+_TOKEN_SPLIT = re.compile(r"[\s;|&<>]+")
+
+
+def _candidate_paths(path: str) -> list[str]:
+    """All path forms a glob should be tested against, so a deny can't be dodged by a
+    ``./`` prefix, an absolute path, ``..`` segments, or surrounding quotes.
+
+    Produces the quote-stripped path, its ``posixpath.normpath`` form, and every
+    ``/``-suffix of both (so ``/repo/tests/x.py`` still matches a relative glob like
+    ``tests/*``). Over-matching here only ever *adds* denials — the safe direction.
+    """
     p = path.strip().strip('"').strip("'")
-    base = p.rsplit("/", 1)[-1]
+    if not p:
+        return [""]
+    cands: set[str] = {p, posixpath.normpath(p)}
+    for s in (p, posixpath.normpath(p)):
+        parts = [seg for seg in s.split("/") if seg not in ("", ".")]
+        for i in range(len(parts)):
+            cands.add("/".join(parts[i:]))
+    return [c for c in cands if c]
+
+
+def _path_matches(path: str, globs: list[str]) -> str | None:
+    """Return the first glob that matches ``path`` (any normalized form or basename)."""
+    cands = _candidate_paths(path)
     for g in globs:
-        if fnmatch.fnmatch(p, g) or fnmatch.fnmatch(base, g):
-            return g
+        for c in cands:
+            if fnmatch.fnmatch(c, g) or fnmatch.fnmatch(c.rsplit("/", 1)[-1], g):
+                return g
     return None
 
 
 def _command_hits_secret(command: str, globs: list[str]) -> str | None:
     """Detect a read/copy/transmit command targeting a secret path inside a Bash command."""
-    tokens = re.split(r"[\s;|&]+", command)
+    tokens = _TOKEN_SPLIT.split(command)
     if not tokens:
         return None
     saw_touch_cmd = any(t.rsplit("/", 1)[-1] in _TOUCH_CMDS for t in tokens)
@@ -202,7 +255,7 @@ def _command_writes_path(command: str, globs: list[str]) -> str | None:
     """Detect a shell command that writes/mutates a read-only-protected path."""
     if not globs:
         return None
-    tokens = re.split(r"[\s;|&]+", command)
+    tokens = _TOKEN_SPLIT.split(command)
     cmd_words = {t.rsplit("/", 1)[-1] for t in tokens}
     has_write = (">" in command) or bool(cmd_words & set(_WRITE_INDICATORS))
     if not has_write:
@@ -233,8 +286,11 @@ def evaluate_event(event: dict, policy: Policy | None = None) -> Decision:
     # 1. Bash commands -> destructive-command + secret-read checks.
     if tool == "Bash":
         command = str(tool_input.get("command", ""))
+        # Match destructive signatures against the raw command AND a dequoted copy,
+        # so quoting a dangerous target (e.g. rm -rf '/') can't slip past a pattern.
+        cmd_variants = (command, command.replace("'", "").replace('"', ""))
         for pat in pol.all_command_patterns():
-            if re.search(pat, command, flags=re.IGNORECASE):
+            if any(re.search(pat, c, flags=re.IGNORECASE) for c in cmd_variants):
                 return Decision(
                     block=True,
                     reason=(

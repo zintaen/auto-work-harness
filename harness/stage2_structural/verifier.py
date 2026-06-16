@@ -17,6 +17,7 @@ It is deliberately NOT used alone; see scorermix.py for the 60/30/10 blend.
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -161,8 +162,14 @@ def parse_judgment(text: str, rubric: Rubric) -> VerifierResult:
             score = float(entry.get("score", 0.0))
         except (TypeError, ValueError):
             score = 0.0
+        # A non-finite judge score (json.loads accepts NaN/Infinity) must fail to 0.0,
+        # not inflate to 1.0 via max/min — a malformed/adversarial judge fails closed.
+        if not math.isfinite(score):
+            score = 0.0
         score = max(0.0, min(1.0, score))
-        passed = bool(entry.get("pass", score >= 0.5))
+        # Only honor an EXPLICIT boolean `pass`; a truthy string like "no" must not pass.
+        raw_pass = entry.get("pass")
+        passed = raw_pass if isinstance(raw_pass, bool) else score >= 0.5
         per[c.name] = {"score": score, "pass": passed, "note": str(entry.get("note", ""))}
         weighted += c.weight * score
         if c.required and not passed:

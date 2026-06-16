@@ -52,9 +52,9 @@ def main(
     if not cmd:
         return 0, "", ""
     try:
-        proc = runner(cmd, cwd=cwd, capture_output=True, text=True)
-    except FileNotFoundError:
-        # Formatter not installed — stay silent and non-blocking.
+        proc = runner(cmd, cwd=cwd, capture_output=True, text=True, timeout=60.0)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        # Formatter missing or hung — formatting is a convenience, stay silent + non-blocking.
         return 0, "", ""
     note = f"[awh] formatted {Path(path).name} ({cmd[0]})" if proc.returncode == 0 else ""
     return 0, note, ""

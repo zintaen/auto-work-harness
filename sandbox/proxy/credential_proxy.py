@@ -84,6 +84,10 @@ def handle(client: socket.socket, allow: set[str]) -> None:
                 client.close()
                 return
             request += chunk
+            if len(request) > 65536:  # bound the header buffer: a client that never
+                client.sendall(b"HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n")
+                client.close()  # sends the terminator must not grow memory unboundedly
+                return
         line = request.split(b"\r\n", 1)[0].decode("latin-1")
         parts = line.split()
         if len(parts) < 2 or parts[0].upper() != "CONNECT":

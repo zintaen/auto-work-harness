@@ -62,3 +62,28 @@ class TestLoadAllowlist:
     def test_shipped_allowlist_is_nonempty(self):
         shipped = _PROXY.parent / "allowlist.txt"
         assert proxy.load_allowlist(str(shipped)) >= {"github.com", "pypi.org"}
+
+
+class TestHeaderBound:
+    def test_oversized_header_rejected_not_unbounded(self):
+        # A client that never sends the \r\n\r\n terminator must not grow the buffer
+        # forever — the proxy caps it and returns 431. Run handle() in a thread so the
+        # 70 KB send can't deadlock against the same-thread reader.
+        import contextlib
+        import socket
+        import threading
+
+        srv, cli = socket.socketpair()
+        t = threading.Thread(target=proxy.handle, args=(srv, {"github.com"}), daemon=True)
+        t.start()
+        with contextlib.suppress(OSError):
+            cli.sendall(b"X" * 70000)  # >64 KB, no header terminator
+        cli.settimeout(2)
+        resp = b""
+        with contextlib.suppress(OSError):
+            resp = cli.recv(4096)
+        t.join(timeout=2)
+        for s in (srv, cli):
+            with contextlib.suppress(OSError):
+                s.close()
+        assert b"431" in resp

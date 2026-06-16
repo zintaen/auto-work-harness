@@ -20,7 +20,41 @@ human can review the exact rules; ``render_init_script`` is its tested twin.
 
 from __future__ import annotations
 
+import ipaddress
+import re
+
 __all__ = ["default_allowlist", "build_iptables_plan", "render_init_script"]
+
+# A valid DNS hostname: letters/digits/hyphens in 1–63-char labels, dots between,
+# total ≤253, optional trailing dot. Crucially this admits NO shell metacharacters
+# (space, ;, |, &, $, (), <>, quotes, newlines) — the whole point is that a value
+# interpolated into the generated root script can't carry a command injection.
+_HOSTNAME_RE = re.compile(
+    r"^(?=.{1,253}\.?$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)"
+    r"(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*\.?$"
+)
+
+
+def _check_domain(d: str) -> str:
+    if not isinstance(d, str) or not _HOSTNAME_RE.match(d):
+        raise ValueError(f"egress: refusing to render an unsafe/invalid domain: {d!r}")
+    return d
+
+
+def _check_ip(ip: str) -> str:
+    try:
+        ipaddress.ip_address(ip)
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"egress: invalid resolver IP: {ip!r}") from e
+    return ip
+
+
+def _check_subnet(net: str) -> str:
+    try:
+        ipaddress.ip_network(net, strict=False)
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"egress: invalid allow-subnet (CIDR): {net!r}") from e
+    return net
 
 
 def default_allowlist() -> list[str]:
@@ -47,8 +81,10 @@ def build_iptables_plan(
     Order matters: flush -> allowlist set -> loopback -> established -> DNS ->
     allowed dst -> host subnets -> default DROP -> final logged reject.
     """
-    resolver_ips = resolver_ips or ["1.1.1.1", "8.8.8.8"]
-    allow_subnets = allow_subnets or []
+    # Validate every value BEFORE it is interpolated into the generated root script.
+    resolver_ips = [_check_ip(r) for r in (resolver_ips or ["1.1.1.1", "8.8.8.8"])]
+    allow_subnets = [_check_subnet(n) for n in (allow_subnets or [])]
+    domains = [_check_domain(d) for d in domains]
     plan: list[str] = [
         "iptables -F OUTPUT",
         "iptables -F INPUT",
@@ -90,6 +126,12 @@ def render_init_script(
     plan = build_iptables_plan(domains, resolver_ips, allow_subnets)
     body = "\n".join(plan)
     allowed_probe = domains[0] if domains else "github.com"
+    # Negative probe must be a host that is NOT allowlisted, else a "blocked" result
+    # is meaningless. Pick the first example.* host not present in the allowlist.
+    neg_probe = next(
+        (h for h in ("example.org", "example.com", "example.net") if h not in domains),
+        "example.org",
+    )
     return f"""#!/usr/bin/env bash
 # AUTO_WORK harness — default-deny egress firewall.
 # Apply INSIDE the agent's network namespace as root at container start.
@@ -111,8 +153,8 @@ if curl -sS --max-time 5 -o /dev/null "https://{allowed_probe}"; then
 else
   echo "[awh] WARN: could not reach allowed host {allowed_probe} (DNS/timing?)" >&2
 fi
-if curl -sS --max-time 5 -o /dev/null "https://example.org" 2>/dev/null; then
-  echo "[awh] FAIL: example.org was reachable — egress is NOT contained!" >&2
+if curl -sS --max-time 5 -o /dev/null "https://{neg_probe}" 2>/dev/null; then
+  echo "[awh] FAIL: {neg_probe} was reachable — egress is NOT contained!" >&2
   exit 1
 else
   echo "[awh] OK: non-allowlisted egress is blocked."

@@ -47,7 +47,8 @@ def main() -> int:
         root = Path(d)
         (root / "m.py").write_text(MODULE)
         (root / "t.py").write_text(STRONG_TEST)
-        report = run_mutation(root / "m.py", "python3 -B t.py", workdir=root)
+        # sys.executable, not a literal "python3", so the demo works wherever it runs.
+        report = run_mutation(root / "m.py", f"{sys.executable} -B t.py", workdir=root)
         print(report.summary())
         if report.score < 1.0:
             print("FAIL: surviving mutants => the test suite is weak.", file=sys.stderr)

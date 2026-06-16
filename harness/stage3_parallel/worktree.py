@@ -19,6 +19,7 @@ bits); the suite exercises them against a real temporary repository.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import zlib
 from dataclasses import dataclass
@@ -29,6 +30,21 @@ __all__ = ["Worktree", "WorktreeError", "MergeResult", "WorktreeManager"]
 
 class WorktreeError(RuntimeError):
     """A git worktree operation failed (message carries git's stderr)."""
+
+
+# A task id becomes BOTH a filesystem path segment and a git branch/ref name, so it
+# must be restricted: no '/' or '..' (path traversal out of the worktrees dir), no
+# leading '-' (git argument injection like `-D`), no shell/ref metacharacters.
+_TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def _check_task_id(task_id: str) -> str:
+    if not isinstance(task_id, str) or ".." in task_id or not _TASK_ID_RE.match(task_id):
+        raise WorktreeError(
+            f"invalid task_id {task_id!r}: allowed chars [A-Za-z0-9._-], must start "
+            "alphanumeric, no '..', no '/', no leading '-'"
+        )
+    return task_id
 
 
 @dataclass(frozen=True)
@@ -69,13 +85,17 @@ class WorktreeManager:
         )
 
     # ----------------------------- git plumbing ----------------------------- #
-    def _git(self, *args: str, cwd: Path | None = None, check: bool = True):
-        proc = subprocess.run(
-            ["git", *args],
-            cwd=str(cwd or self.repo_root),
-            capture_output=True,
-            text=True,
-        )
+    def _git(self, *args: str, cwd: Path | None = None, check: bool = True, timeout: float = 120.0):
+        try:
+            proc = subprocess.run(
+                ["git", *args],
+                cwd=str(cwd or self.repo_root),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as e:
+            raise WorktreeError(f"git {' '.join(args)} timed out after {timeout}s") from e
         if check and proc.returncode != 0:
             raise WorktreeError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
         return proc
@@ -88,8 +108,15 @@ class WorktreeManager:
             == 0
         )
 
+    def _current_ref(self) -> str:
+        """Current branch name, or the commit sha if HEAD is detached."""
+        p = self._git("symbolic-ref", "--quiet", "--short", "HEAD", check=False)
+        if p.returncode == 0 and p.stdout.strip():
+            return p.stdout.strip()
+        return self._git("rev-parse", "HEAD", check=False).stdout.strip()
+
     def branch_for(self, task_id: str) -> str:
-        return f"{self.BRANCH_PREFIX}{task_id}"
+        return f"{self.BRANCH_PREFIX}{_check_task_id(task_id)}"
 
     # ------------------------------- commands ------------------------------- #
     def create(self, task_id: str, base_ref: str = "HEAD") -> Worktree:
@@ -139,6 +166,7 @@ class WorktreeManager:
         return items
 
     def remove(self, task_id: str, force: bool = False, delete_branch: bool = False) -> None:
+        _check_task_id(task_id)
         path = self.worktrees_dir / task_id
         args = ["worktree", "remove"]
         if force:
@@ -156,20 +184,28 @@ class WorktreeManager:
         half-applied for the next task to trip over.
         """
         branch = self.branch_for(task_id)
+        if not self._branch_exists(branch):
+            return MergeResult(False, branch, [], f"merge failed: branch {branch} does not exist")
         message = message or f"merge {branch} into {into}"
+        prior = self._current_ref()
         self._git("checkout", into)
-        proc = self._git("merge", "--no-ff", "-m", message, branch, check=False)
-        if proc.returncode == 0:
-            return MergeResult(True, branch, [], f"merged {branch} into {into}")
-        conflicts = [
-            ln
-            for ln in self._git(
-                "diff", "--name-only", "--diff-filter=U", check=False
-            ).stdout.splitlines()
-            if ln
-        ]
-        self._git("merge", "--abort", check=False)
-        return MergeResult(False, branch, conflicts, f"CONFLICT merging {branch}: {conflicts}")
+        try:
+            proc = self._git("merge", "--no-ff", "-m", message, branch, check=False)
+            if proc.returncode == 0:
+                return MergeResult(True, branch, [], f"merged {branch} into {into}")
+            conflicts = [
+                ln
+                for ln in self._git(
+                    "diff", "--name-only", "--diff-filter=U", check=False
+                ).stdout.splitlines()
+                if ln
+            ]
+            self._git("merge", "--abort", check=False)
+            return MergeResult(False, branch, conflicts, f"CONFLICT merging {branch}: {conflicts}")
+        finally:
+            # never leave the main repo parked on the integration branch
+            if prior and prior != into:
+                self._git("checkout", prior, check=False)
 
     def prune(self) -> None:
         """Prune stale worktree admin files (after manual dir deletion / disk reclaim)."""
@@ -193,11 +229,14 @@ class WorktreeManager:
         Port is derived deterministically from the task id so parallel worktrees
         don't collide on a shared port/DB.
         """
+        _check_task_id(task_id)
         path = self.worktrees_dir / task_id
         if not path.exists():
             raise WorktreeError(f"no worktree for task {task_id!r}")
         # crc32 (not builtin hash(), which is salted per-process) -> stable port.
-        port = base_port + (zlib.crc32(task_id.encode()) % 1000)
+        # Wide modulus so deterministic ports rarely collide even at high fan-out
+        # (1000 slots collided by ~40 parallel tasks; 20000 pushes that out to ~170).
+        port = base_port + (zlib.crc32(task_id.encode()) % 20000)
         env = {"PORT": str(port), "AWH_WORKTREE": task_id}
         (path / ".env.local").write_text("".join(f"{k}={v}\n" for k, v in env.items()))
         return env

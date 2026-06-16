@@ -45,15 +45,33 @@ class Run:
 
 
 def read_runs(log_path) -> list[Run]:
-    """Load all runs from a JSONL ledger (missing file -> empty)."""
+    """Load all runs from a JSONL ledger (missing file -> empty).
+
+    Degrades gracefully: a corrupt/partial line (e.g. a crash mid-write) or a line
+    from a newer schema (extra keys) is skipped, never crashing the whole read —
+    the ledger is append-only audit data, one bad line must not poison it.
+    """
     p = Path(log_path)
     if not p.exists():
         return []
+    fields = set(Run.__dataclass_fields__)
     runs: list[Run] = []
     for line in p.read_text(encoding="utf-8").splitlines():
         line = line.strip()
-        if line:
-            runs.append(Run(**json.loads(line)))
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(d, dict) or "repo" not in d or "harness_version" not in d:
+            continue
+        kwargs = {k: v for k, v in d.items() if k in fields}  # tolerate forward-compat keys
+        kwargs.setdefault("ts", 0.0)
+        try:
+            runs.append(Run(**kwargs))
+        except (TypeError, ValueError):
+            continue
     return runs
 
 
@@ -137,6 +155,7 @@ def summarize(
     the last ``window`` runs. Belt-and-suspenders: a long-ago streak alone isn't
     enough if the recent window is still churning.
     """
+    window = max(1, window)  # a 0/negative window would slice the whole list via [-0:]
     runs = read_runs(log_path)
     n = len(runs)
     distinct = len({r.repo for r in runs})

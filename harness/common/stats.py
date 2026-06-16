@@ -125,6 +125,8 @@ def wilson_interval(successes: int, n: int, z: float = 1.959963984540054) -> Int
         raise ValueError("n must be > 0")
     if not 0 <= successes <= n:
         raise ValueError("require 0 <= successes <= n")
+    if not (math.isfinite(z) and z > 0):
+        raise ValueError("z must be a finite, positive critical value")
     p = successes / n
     z2 = z * z
     denom = 1.0 + z2 / n
@@ -228,9 +230,15 @@ def two_proportion_power(baseline: float, mde: float, alpha: float, power: float
         raise ValueError("baseline must be in (0, 1)")
     if mde == 0:
         raise ValueError("mde must be non-zero")
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("alpha must be in (0, 1)")
+    if not 0.0 < power < 1.0:
+        raise ValueError("power must be in (0, 1)")
     p1 = baseline
     p2 = min(1.0 - 1e-9, max(1e-9, baseline + mde))
     delta = abs(p2 - p1)
+    if delta == 0:
+        raise ValueError("baseline + mde leaves no detectable effect after clamping to (0, 1)")
     pbar = (p1 + p2) / 2
     z_alpha = inv_norm_cdf(1 - alpha / 2)
     z_beta = inv_norm_cdf(power)

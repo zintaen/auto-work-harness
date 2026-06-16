@@ -269,13 +269,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return args.func(args)
     except Exception as e:  # noqa: BLE001 — turn known user errors into clean messages
-        from harness.stage1_measurement.goldenset import GoldenSetError
         from harness.stage3_parallel.worktree import WorktreeError
 
-        if isinstance(e, GoldenSetError | WorktreeError | FileNotFoundError):
+        # ValueError covers GoldenSetError / MutationError / VerifierError (all subclasses)
+        # plus arg-validation (bad --seeds/--mde/...); FileNotFoundError covers a missing
+        # golden set/baseline. Anything else is a real bug -> re-raise with a traceback.
+        if isinstance(e, WorktreeError | ValueError | FileNotFoundError):
             print(f"awh: error: {e}", file=sys.stderr)
             return 1
-        raise  # unexpected -> re-raise with a full traceback (it's a real bug)
+        raise
 
 
 if __name__ == "__main__":  # pragma: no cover
