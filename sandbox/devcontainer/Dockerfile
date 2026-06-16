@@ -4,6 +4,10 @@
 # code, run this image inside a microVM (E2B/Firecracker, Kata) or gVisor (Modal,
 # Daytona) — see sandbox/README.md. For your own code, container + default-deny
 # egress is the pragmatic baseline.
+#
+# Supply-chain note: for untrusted/regulated builds, pin the base to an immutable
+# digest (FROM python:3.12-slim@sha256:<digest>) and rebuild deliberately. Left as a
+# floating tag here for low-friction local dev.
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

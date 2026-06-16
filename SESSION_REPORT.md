@@ -147,5 +147,20 @@ risks; all findings were fixed and pinned with regression tests
   post-merge cleanup errors are suppressed so one failure can't abort the run.
 - maturity: a corrupt/partial JSONL line or a forward-compat extra key no longer
   crashes the ledger read; `window<=0` is clamped.
-- CLI: known user errors (`GoldenSetError`/`WorktreeError`/`MutationError`/
-  `FileNotFoundError`) print `awh: error: …` instead of a traceback.
+- CLI: known user errors (`ValueError` incl. `GoldenSetError`/`MutationError`,
+  `WorktreeError`, `FileNotFoundError`) print `awh: error: …` instead of a traceback.
+
+**Config / supply-chain (the declarative "remains"):**
+- CI workflow: actions pinned to commit SHAs (not mutable tags), `permissions:
+  contents: read`, `timeout-minutes`, concurrency-cancel, `persist-credentials:
+  false`, `python -m ruff`.
+- proxy: bounded the CONNECT header read (a client that never terminates can't
+  buffer unboundedly → 431).
+- devcontainer / Dockerfile / Seatbelt reviewed and found solid (non-root agent,
+  scoped NOPASSWD sudo, minimal caps, default-deny, deny-wins ordering, HOME
+  implicitly denied); added a base-image digest-pin note for untrusted builds.
+- added a drift-guard test pinning the committed `init-firewall.sh` to its tested
+  generator, so a future `egress.py` change can't leave a stale script behind.
+
+Test count: 231 → **272**. Every module with logic, plus the CI/sandbox config, has
+now been audited; the remaining surface is pure declarative config with no logic path.

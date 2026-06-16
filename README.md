@@ -13,7 +13,7 @@ hacking and silent failure far more reliably than any prompt.
 > Design principle (Anthropic, 2026): *"Design for containment at the environment
 > layer first, then steer behavior at the model layer."*
 
-Status: **271 tests passing, ruff-clean.** The Stage-0 policy and egress gates have
+Status: **272 tests passing, ruff-clean.** The Stage-0 policy and egress gates have
 been through a dedicated security/edge-case audit (path-normalization and redirect
 bypasses, command-injection in the rendered firewall, fail-safe policy parsing) — see
 `tests/test_audit_hardening.py`. Pure standard library at the core (no
@@ -141,7 +141,7 @@ harness/
   cli.py                     `awh` entry point
 sandbox/                     devcontainer + iptables, Seatbelt profile, egress proxy
 scripts/mutation_demo.py     end-to-end mutation demonstration (used by CI)
-tests/                       271 tests (unit, Hypothesis PBT, real-repo git, audit-hardening)
+tests/                       272 tests (unit, Hypothesis PBT, real-repo git, audit-hardening)
 recipes/                     reusable hardening patterns folded back from real adoptions
   release-safety/            semantic-release downgrade guard (plugin + CI tripwire)
 ```

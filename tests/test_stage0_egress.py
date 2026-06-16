@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from harness.stage0_verification.egress import (
     build_iptables_plan,
     default_allowlist,
@@ -59,3 +61,14 @@ class TestRender:
         assert "api.anthropic.com" in al
         assert "pypi.org" in al
         assert len(al) >= 5
+
+
+class TestCommittedArtifact:
+    def test_committed_firewall_matches_generator(self):
+        # The committed init-firewall.sh must stay in sync with its tested generator,
+        # so a future egress.py change can't leave a stale (unaudited) script behind.
+        committed = Path(__file__).resolve().parents[1] / "sandbox/devcontainer/init-firewall.sh"
+        assert committed.read_text() == render_init_script(), (
+            "sandbox/devcontainer/init-firewall.sh is stale vs egress.render_init_script(); "
+            "regenerate:  awh firewall --out sandbox/devcontainer/init-firewall.sh"
+        )
