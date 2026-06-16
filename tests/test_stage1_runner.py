@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -172,6 +171,28 @@ class TestGate:
         assert bool(gate(cur, base)) is True
 
 
-def test_subprocess_module_importable():
-    # guard: default runner is the stdlib one
-    assert run_task.__defaults__[-1] is subprocess.run
+def test_default_runner_is_safe_run():
+    # guard: default runner is the hardened one (process-group kill, not bare subprocess.run)
+    from harness.stage1_measurement.runner import _safe_run
+
+    assert run_task.__defaults__[-1] is _safe_run
+
+
+class TestSafeRunNoHang:
+    def test_timeout_kills_pipe_holding_child(self, tmp_path):
+        # A backgrounded child outlives the shell and holds the stdout pipe. Plain
+        # subprocess.run(capture_output) would block ~30s despite timeout=1; _safe_run
+        # must kill the whole group and return quickly as a failure.
+        import time as _t
+
+        t = GoldenTask(id="leak", cmd="sleep 30 & echo started", timeout_sec=1.0)
+        start = _t.time()
+        result = run_task(t, 0, tmp_path)  # default runner = _safe_run
+        elapsed = _t.time() - start
+        assert result is False  # timed out -> fail (never a pass)
+        assert elapsed < 12, f"runner hung for {elapsed:.1f}s (process group not killed)"
+
+    def test_stdin_is_closed_not_blocking(self, tmp_path):
+        # a command that reads stdin must get EOF (not hang) and is scored by its rc
+        t = GoldenTask(id="reads-stdin", cmd="cat", timeout_sec=5.0)
+        assert run_task(t, 0, tmp_path) is True  # cat with EOF exits 0

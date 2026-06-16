@@ -1,0 +1,24 @@
+name: release-guard
+description: >-
+  Lost-baseline tripwire for semantic-release. Fails BEFORE publishing if the
+  repo has no version tags while the package already exists on npm — the exact
+  condition that makes semantic-release republish backwards (e.g. 1.0.0 over a
+  3.x line). Cheap, dependency-free, and independent of semantic-release
+  internals. Requires the checkout step to use `fetch-depth: 0` (a shallow
+  clone hides tags and would trip this guard).
+runs:
+  using: composite
+  steps:
+    - name: Guard against a lost-baseline release
+      shell: bash
+      run: |
+        set -euo pipefail
+        name=$(node -p "require('./package.json').name")
+        tagcount=$(git tag -l 'v*' | wc -l | tr -d ' ')
+        published=$(npm view "$name" version 2>/dev/null || true)
+        echo "version tags: ${tagcount} | npm published: ${published:-<none>}"
+        if [ "${tagcount}" = "0" ] && [ -n "${published}" ]; then
+          echo "::error title=Release guard::No git version tags found, but ${name}@${published} is already published on npm. This looks like a lost baseline (history moved or rebuilt without tags) — semantic-release would publish backwards. Restore the tags ('git push origin --tags') and ensure the checkout uses 'fetch-depth: 0' before releasing."
+          exit 1
+        fi
+        echo "Release guard OK: tags present or package not yet published."

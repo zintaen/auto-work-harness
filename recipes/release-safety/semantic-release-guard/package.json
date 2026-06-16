@@ -1,0 +1,32 @@
+{
+    "name": "@cyberskill/semantic-release-guard",
+    "version": "1.0.0",
+    "description": "semantic-release verifyRelease plugin that aborts a release when the computed version is lower than the package's current npm `latest` dist-tag. Catches lost-baseline downgrades (e.g. a repo moved or its history rebuilt without version tags, so semantic-release defaults to 1.0.0 and republishes backwards).",
+    "type": "module",
+    "main": "index.mjs",
+    "exports": {
+        ".": "./index.mjs"
+    },
+    "files": [
+        "index.mjs"
+    ],
+    "keywords": [
+        "semantic-release",
+        "semantic-release-plugin",
+        "release",
+        "guard",
+        "downgrade",
+        "regression",
+        "version"
+    ],
+    "license": "MIT",
+    "publishConfig": {
+        "access": "public"
+    },
+    "peerDependencies": {
+        "semantic-release": ">=21"
+    },
+    "scripts": {
+        "test": "node --test"
+    }
+}

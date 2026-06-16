@@ -62,7 +62,18 @@ def _cmd_eval(args) -> int:
 
     tasks = load_tasks(args.tasks)
     seeds = list(range(args.seeds))
-    report = evaluate(tasks, seeds, base_dir=args.base_dir, label=args.label or "eval")
+    print(
+        f"[awh] running {len(tasks)} task(s) x {len(seeds)} seed(s); "
+        f"output is captured — progress below:",
+        file=sys.stderr,
+    )
+
+    def _progress(i: int, total: int, task_id: str) -> None:
+        print(f"[awh] ({i + 1}/{total}) {task_id} …", file=sys.stderr, flush=True)
+
+    report = evaluate(
+        tasks, seeds, base_dir=args.base_dir, label=args.label or "eval", progress=_progress
+    )
     print(report.summary())
     if args.out:
         Path(args.out).write_text(json.dumps(report.to_dict(), indent=2))

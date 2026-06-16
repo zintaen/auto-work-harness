@@ -11,9 +11,12 @@ is unit-testable without spawning processes.
 
 from __future__ import annotations
 
+import contextlib
 import os
+import signal
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -151,11 +154,71 @@ def _subst(template: str, *, seed: int, task: GoldenTask, task_dir: Path) -> str
     )
 
 
+def _kill_tree(proc: subprocess.Popen) -> None:
+    """Kill the child's whole process group (so daemon grandchildren die too).
+
+    With ``start_new_session=True`` the child is its own group leader, so its PGID
+    equals its PID — use that directly (robust even if the leader already exited and
+    only a backgrounded grandchild remains)."""
+    try:
+        if hasattr(os, "killpg"):
+            os.killpg(proc.pid, signal.SIGKILL)
+        else:  # pragma: no cover - non-POSIX
+            proc.kill()
+    except (ProcessLookupError, PermissionError, OSError):
+        with contextlib.suppress(Exception):
+            proc.kill()
+
+
+def _safe_run(
+    cmd,
+    *,
+    shell: bool = False,
+    cwd=None,
+    env=None,
+    capture_output: bool = False,
+    text: bool = True,
+    timeout: float | None = None,
+):
+    """A subprocess.run-compatible runner that does NOT hang on stuck children.
+
+    Two hardening choices over plain subprocess.run:
+      * the child runs in its OWN process group (start_new_session) and on timeout
+        the WHOLE group is SIGKILLed — a watcher/daemon grandchild that keeps the
+        output pipe open can no longer hang the eval past ``timeout``;
+      * stdin is /dev/null, so a command that prompts for input gets EOF instead of
+        blocking forever.
+    Returns a CompletedProcess; raises TimeoutExpired on timeout (mapped to a fail).
+    """
+    stdout = subprocess.PIPE if capture_output else None
+    stderr = subprocess.PIPE if capture_output else None
+    kwargs = {
+        "shell": shell,
+        "cwd": cwd,
+        "env": env,
+        "stdout": stdout,
+        "stderr": stderr,
+        "stdin": subprocess.DEVNULL,
+        "text": text,
+    }
+    if hasattr(os, "setsid"):
+        kwargs["start_new_session"] = True
+    proc = subprocess.Popen(cmd, **kwargs)
+    try:
+        out, err = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_tree(proc)
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            proc.communicate(timeout=5)
+        raise
+    return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
+
+
 def run_task(
     task: GoldenTask,
     seed: int,
     base_dir: Path,
-    runner=subprocess.run,
+    runner=_safe_run,
 ) -> bool:
     """Run one task at one seed; return True iff it passed.
 
@@ -196,8 +259,9 @@ def evaluate(
     seeds: list[int],
     base_dir: str | os.PathLike[str] = ".",
     k: int | None = None,
-    runner=subprocess.run,
+    runner=_safe_run,
     label: str = "",
+    progress: Callable[[int, int, str], None] | None = None,
 ) -> EvalReport:
     """Run every task across every seed and build an EvalReport.
 
@@ -206,15 +270,19 @@ def evaluate(
         seeds: independent seeds (>= 3-5 recommended; size with stats.seeds_for_power).
         base_dir: directory used to resolve each task's workdir.
         k: the k for pass@k / pass^k reporting (defaults to len(seeds)).
-        runner: injectable subprocess.run-like callable.
+        runner: injectable subprocess.run-like callable (default isolates+kills on timeout).
         label: a name for this run (e.g. "baseline", "PR-1234").
+        progress: optional callback(index, total, task_id) fired before each task —
+            lets a CLI show liveness so a long run never looks frozen.
     """
     if not seeds:
         raise ValueError("need at least one seed")
     base = Path(base_dir)
     k = k or len(seeds)
     results: list[TaskResult] = []
-    for task in tasks:
+    for i, task in enumerate(tasks):
+        if progress:
+            progress(i, len(tasks), task.id)
         passes = [run_task(task, s, base, runner=runner) for s in seeds]
         results.append(
             TaskResult(task_id=task.id, weight=task.weight, seeds=list(seeds), passes=passes)

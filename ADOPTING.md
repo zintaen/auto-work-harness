@@ -163,3 +163,22 @@ serialized merges — never agent-to-agent).
   floor; a single run is provably noise.
 - **Mutation run slow** — point it at one module at a time; it runs the suite once
   per mutant by design.
+
+---
+
+## 7. Release safety (semantic-release / npm repos)
+
+If the repo publishes to npm via **semantic-release**, add the release-safety
+recipe — it prevents the "lost baseline" downgrade where a moved/rebuilt repo
+loses its version tags and republishes backwards (e.g. `1.0.0` over `3.20.1`).
+
+See [`recipes/release-safety/`](recipes/release-safety/README.md). In short:
+
+- Checkout must use **`fetch-depth: 0`** (a shallow clone hides tags — this alone
+  causes the bug).
+- Add the **`@cyberskill/semantic-release-guard`** plugin (or vendor
+  `recipes/release-safety/semantic-release-guard/index.mjs`) before
+  `@semantic-release/npm` — it aborts if the computed version `<` npm `latest`.
+- Optionally add the **`release-guard` composite action** org-wide as a cheap
+  tripwire (fails when a repo has no version tags but the package already exists).
+- On any repo move: **`git push origin --tags`** (or `--mirror`).

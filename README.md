@@ -98,6 +98,8 @@ harness/
 sandbox/                     devcontainer + iptables, Seatbelt profile, egress proxy
 scripts/mutation_demo.py     end-to-end mutation demonstration (used by CI)
 tests/                       195 tests (unit, Hypothesis PBT, real-repo git tests)
+recipes/                     reusable hardening patterns folded back from real adoptions
+  release-safety/            semantic-release downgrade guard (plugin + CI tripwire)
 ```
 
 ## Caveats (carried from the survey)
