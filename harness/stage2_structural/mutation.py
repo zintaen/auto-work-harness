@@ -173,7 +173,7 @@ def run_mutation(
         try:
             return runner(
                 test_cmd,
-                shell=True,
+                shell=True,  # nosec B604 - runs the operator's test command
                 cwd=str(workdir) if workdir else None,
                 capture_output=True,
                 text=True,

@@ -32,6 +32,8 @@ jobs:
       # `python -m ruff` (not bare `ruff`) so it works regardless of console-script PATH.
       - name: Lint (ruff)
         run: python -m ruff check .
+      - name: Security scan (bandit — dogfood Stage 0 on our own source)
+        run: python -m bandit -c pyproject.toml -r harness sandbox scripts -q
       - name: Tests (incl. Hypothesis PBT + real-repo worktree tests)
         run: python -m pytest -q
 

@@ -162,5 +162,25 @@ risks; all findings were fixed and pinned with regression tests
 - added a drift-guard test pinning the committed `init-firewall.sh` to its tested
   generator, so a future `egress.py` change can't leave a stale script behind.
 
-Test count: 231 → **272**. Every module with logic, plus the CI/sandbox config, has
-now been audited; the remaining surface is pure declarative config with no logic path.
+**Objective-tooling pass** (beyond manual review + ruff):
+- **mypy** (type-checker): **0 type errors** across every module (per-file; mypy's
+  whole-package run hits its own internal-error bug).
+- **bandit** (security scanner): **0 issues** — the `shell=True`/subprocess findings
+  are reviewed-and-accepted (operator-controlled commands, documented with inline
+  `# nosec` + a `[tool.bandit]` rationale). Now a first-class gate: `make security`,
+  a CI step, and a pre-commit hook.
+- **coverage**: **94%** overall; the CLI dispatch/handlers (the biggest gap) were
+  raised 77% → 93% with new smoke tests. Remaining uncovered lines are defensive
+  branches and `__main__` guards.
+- reviewed the last un-opened files (`promptfoo_gate.py`, `promptfooconfig.yaml`,
+  `examples/flaky_solver.py`, `.pre-commit-config.yaml`) — no bugs; promptfoo task
+  ids verified to match the golden set.
+- **`.gitignore` correctness**: found a latent bug — `.gitignore` has no inline
+  comments, so the pre-existing `eval-runs/        # …` line was a dead pattern
+  that never actually ignored the eval output. Rewrote the test/eval section with
+  comments on their own lines and added `.mypy_cache/` + `.coverage.*` (parallel
+  shards) so objective-tooling runs can't leak artifacts into a commit. Verified
+  with `git check-ignore`.
+
+Test count: 231 → **280**. Every module with logic, the CI/sandbox config, AND the
+objective tools (types, security, coverage) are clean.

@@ -234,7 +234,7 @@ def run_task(
         try:
             proc = runner(
                 cmd,
-                shell=True,
+                shell=True,  # nosec B604 - runs the operator's golden-set task command
                 cwd=str(workdir) if workdir.exists() else None,
                 env=env,
                 capture_output=True,

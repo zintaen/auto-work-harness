@@ -66,7 +66,7 @@ def main(
     try:
         proc = runner(
             gate,
-            shell=True,
+            shell=True,  # nosec B604 - runs the operator's gate command, never agent input
             cwd=cwd,
             capture_output=True,
             text=True,

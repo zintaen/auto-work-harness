@@ -3,7 +3,7 @@
 PY ?= python3
 export PYTHONPATH := .
 
-.PHONY: install lint format format-check test pbt eval mutation verify all ci clean
+.PHONY: install lint format format-check security test pbt eval mutation verify all ci clean
 
 install:
 	$(PY) -m pip install --break-system-packages -e ".[dev]"
@@ -30,6 +30,10 @@ mutation:
 
 format-check:
 	$(PY) -m ruff format --check .
+
+# Stage 0 dogfood: scan our own source with bandit (config in pyproject [tool.bandit]).
+security:
+	$(PY) -m bandit -c pyproject.toml -r harness sandbox scripts -q
 
 # The evidence gate: structure-first, fast, deterministic.
 # Includes format-check so a format drift can't slip through to the eval gate.

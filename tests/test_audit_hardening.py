@@ -272,3 +272,54 @@ class TestCliCleanErrors:
         rc = cli_main(["power", "--baseline", "0.5", "--mde", "0"])
         err = capsys.readouterr().err
         assert rc == 1 and "awh: error:" in err
+
+
+# --------------------------------------------------------------------------- #
+# CLI — smoke-test every subcommand's dispatch + handler (was largely uncovered)
+# --------------------------------------------------------------------------- #
+class TestCliSmoke:
+    def test_maturity_report(self, capsys, tmp_path):
+        log = tmp_path / "evo.jsonl"
+        log.write_text('{"ts":1,"repo":"a","harness_version":"v1"}\n')
+        assert cli_main(["maturity", "--log", str(log)]) == 0
+        assert "VERDICT" in capsys.readouterr().out
+
+    def test_maturity_log_and_json(self, tmp_path):
+        log = tmp_path / "evo.jsonl"
+        assert (
+            cli_main(["maturity", "log", "--repo", "t/x", "--version", "v1", "--log", str(log)])
+            == 0
+        )
+        assert log.exists()
+        assert cli_main(["maturity", "--log", str(log), "--json"]) == 0
+
+    def test_lock_firewall_power(self, capsys, tmp_path):
+        assert cli_main(["lock", str(tmp_path)]) == 0
+        assert cli_main(["firewall"]) == 0
+        assert cli_main(["power", "--baseline", "0.5", "--mde", "0.1"]) == 0
+        assert "#!/usr/bin/env bash" in capsys.readouterr().out  # firewall rendered to stdout
+
+    def test_worktree_list(self, repo):
+        assert cli_main(["worktree", "list", "--repo", str(repo)]) == 0
+
+    def test_maturity_log_resolves_version(self, tmp_path):
+        # no --version -> exercises _harness_version (git short sha, or __version__ fallback)
+        log = tmp_path / "evo.jsonl"
+        assert cli_main(["maturity", "log", "--repo", "t/y", "--log", str(log)]) == 0
+
+    def test_maturity_log_missing_repo_errors(self, tmp_path):
+        log = tmp_path / "evo.jsonl"
+        assert cli_main(["maturity", "log", "--log", str(log)]) == 2  # --repo required
+
+    def test_maturity_gate_nonzero_when_not_ready(self, tmp_path):
+        log = tmp_path / "evo.jsonl"
+        log.write_text('{"ts":1,"repo":"a","harness_version":"v1","categories":["x"]}\n')
+        assert cli_main(["maturity", "--log", str(log), "--gate"]) == 1  # not READY
+
+    def test_lock_write_policy_and_firewall_out(self, tmp_path):
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "t_a.py").write_text("def test():\n    pass\n")
+        assert cli_main(["lock", str(tmp_path), "--scoring", "tests/**", "--write-policy"]) == 0
+        out = tmp_path / "fw.sh"
+        assert cli_main(["firewall", "--out", str(out)]) == 0
+        assert out.exists()

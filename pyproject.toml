@@ -19,6 +19,7 @@ dev = [
   "pytest>=8",
   "hypothesis>=6",
   "ruff>=0.6",
+  "bandit>=1.7",
 ]
 
 [project.scripts]
@@ -45,3 +46,12 @@ ignore = ["E501"]
 "tests/*" = ["B011"]
 # importorskip() must run before the hypothesis import, which trips E402.
 "tests/test_stage2_pbt.py" = ["E402"]
+
+[tool.bandit]
+# B404/B603/B607: this toolkit's whole job is to orchestrate git / npm / ruff and
+# run the operator's gate + test commands via subprocess. Those call sites use
+# fixed argv or operator-controlled commands (never agent-controlled input — the
+# PreToolUse policy and worktree task_id validation enforce that), so the generic
+# "you use subprocess / partial path" findings are reviewed-and-accepted noise.
+# The remaining shell=True sites (B604) carry inline `# nosec` with a rationale.
+skips = ["B404", "B603", "B607"]

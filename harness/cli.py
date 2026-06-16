@@ -127,7 +127,7 @@ def _harness_version(root: Path) -> str:
         )
         if out.returncode == 0 and out.stdout.strip():
             return out.stdout.strip()
-    except Exception:
+    except Exception:  # nosec B110 - git sha is best-effort; fall through to __version__
         pass
     return __version__
 

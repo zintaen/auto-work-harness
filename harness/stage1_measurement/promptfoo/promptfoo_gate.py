@@ -28,7 +28,8 @@ def get_assert(output, context):  # noqa: ARG001 - promptfoo contract
     task_id = (context or {}).get("vars", {}).get("task_id")
     tasks = [t for t in load_tasks(_TASKS_FILE) if t.id == task_id]
     if not tasks:
-        return {"pass": False, "score": 0.0, "reason": f"unknown task_id {task_id!r}"}
+        # "pass" below is promptfoo's pass/fail verdict field, not a credential (B105 FP)
+        return {"pass": False, "score": 0.0, "reason": f"unknown task_id {task_id!r}"}  # nosec B105
     report = evaluate(tasks, _SEEDS, base_dir=str(_ROOT))
     tr = report.tasks[0]
     return {
