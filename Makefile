@@ -3,7 +3,7 @@
 PY ?= python3
 export PYTHONPATH := .
 
-.PHONY: install lint format test pbt eval mutation verify all ci clean
+.PHONY: install lint format format-check test pbt eval mutation verify all ci clean
 
 install:
 	$(PY) -m pip install --break-system-packages -e ".[dev]"
@@ -28,8 +28,12 @@ eval:
 mutation:
 	$(PY) scripts/mutation_demo.py
 
+format-check:
+	ruff format --check .
+
 # The evidence gate: structure-first, fast, deterministic.
-verify: lint test
+# Includes format-check so a format drift can't slip through to the eval gate.
+verify: lint format-check test
 
 all: verify eval mutation
 

@@ -236,7 +236,9 @@ def build_parser() -> argparse.ArgumentParser:
     ma.add_argument("--repo", help="(log) repo being adopted")
     ma.add_argument("--version", help="(log) harness version/sha; default: git short HEAD")
     ma.add_argument(
-        "--outcome", choices=["green", "red", "unknown"], default="unknown",
+        "--outcome",
+        choices=["green", "red", "unknown"],
+        default="unknown",
     )
     ma.add_argument(
         "--category",
@@ -245,10 +247,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="(log) evolution category, e.g. recipe:release-safety (repeatable)",
     )
     ma.add_argument("--note", default="")
-    ma.add_argument("--log", default=None, help="ledger path (default: <harness>/evolution-log.jsonl)")
+    ma.add_argument(
+        "--log", default=None, help="ledger path (default: <harness>/evolution-log.jsonl)"
+    )
     ma.add_argument("--window", type=int, default=5, help="(report) recent-rate window")
-    ma.add_argument("--ready-streak", type=int, default=3, help="(report) clean adoptions for READY")
-    ma.add_argument("--max-rate", type=float, default=0.2, help="(report) max recent evolution rate for READY")
+    ma.add_argument(
+        "--ready-streak", type=int, default=3, help="(report) clean adoptions for READY"
+    )
+    ma.add_argument(
+        "--max-rate", type=float, default=0.2, help="(report) max recent evolution rate for READY"
+    )
     ma.add_argument("--gate", action="store_true", help="(report) exit non-zero unless READY")
     ma.add_argument("--json", action="store_true", help="(report) emit JSON")
     ma.set_defaults(func=_cmd_maturity)
