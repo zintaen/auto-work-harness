@@ -43,3 +43,5 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["B011"]
+# importorskip() must run before the hypothesis import, which trips E402.
+"tests/test_stage2_pbt.py" = ["E402"]

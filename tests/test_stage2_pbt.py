@@ -9,6 +9,13 @@ for adding PBT to your own modules.
 
 from __future__ import annotations
 
+import pytest
+
+# PBT lives in the `dev` extra. If hypothesis isn't installed (runtime-only
+# `pip install -e .`), skip this module cleanly instead of crashing collection
+# for the whole suite. Run `make install` to get the dev deps and actually run PBT.
+pytest.importorskip("hypothesis")
+
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
