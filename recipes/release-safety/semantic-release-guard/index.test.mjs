@@ -65,6 +65,10 @@ test('compareCore orders versions', () => {
     assert.equal(compareCore('3.21.0', '3.20.1'), 1);
     assert.equal(compareCore('3.20.1', '3.20.1'), 0);
     assert.equal(compareCore('v3.20.2', '3.20.1'), 1);
+    // build/prerelease metadata is stripped; only the numeric core compares
+    assert.equal(compareCore('1.2.4+build.7', '1.2.3'), 1);
+    assert.equal(compareCore('1.2.3+build', '1.2.3'), 0);
+    assert.equal(compareCore('3.20.1-rc.1', '3.20.0'), 1);
 });
 
 test('blocks a major downgrade (1.0.0 over latest 3.20.1)', async () => {

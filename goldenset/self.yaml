@@ -10,12 +10,14 @@ tasks:
 
   - id: lint-clean
     description: ruff reports no issues
-    cmd: "ruff check ."
+    # `python3 -m ruff` (not bare `ruff`) so the gate works whether or not the
+    # ruff console script is on PATH (it isn't in every CI/sandbox).
+    cmd: "python3 -m ruff check ."
     weight: 1.0
 
   - id: format-clean
     description: ruff format leaves nothing to reformat
-    cmd: "ruff format --check ."
+    cmd: "python3 -m ruff format --check ."
     weight: 1.0
 
   - id: mutation-demo

@@ -176,8 +176,14 @@ def lock_tests(
             else:
                 make_readonly(target)
                 report.locked.append(rel)
-            if rel not in report.recommended_write_globs:
-                report.recommended_write_globs.append(rel)
+        # Deny the whole scoring/held-out PATTERN in policy — not just files that
+        # exist now — so the agent cannot add, revive, or swap files in this area.
+        # The held-out suite (SpecBench) must stay sealed even as the repo grows;
+        # visible test files (test_globs) stay per-file so the agent can still add
+        # its own unit tests.
+        for g in scoring_globs:
+            if g not in report.recommended_write_globs:
+                report.recommended_write_globs.append(g)
 
     return report
 

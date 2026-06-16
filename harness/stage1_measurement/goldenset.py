@@ -62,13 +62,19 @@ class GoldenTask:
         weight = float(data.get("weight", 1.0))
         if weight <= 0:
             raise GoldenSetError(f"{source}: task {data['id']!r} weight must be > 0")
+        timeout_sec = float(data.get("timeout_sec", 120.0))
+        if timeout_sec <= 0:
+            raise GoldenSetError(
+                f"{source}: task {data['id']!r} timeout_sec must be > 0 "
+                "(a zero/negative timeout makes the task always time out)"
+            )
         return GoldenTask(
             id=str(data["id"]),
             cmd=str(data["cmd"]),
             description=str(data.get("description", "")),
             check=(str(data["check"]) if data.get("check") is not None else None),
             weight=weight,
-            timeout_sec=float(data.get("timeout_sec", 120.0)),
+            timeout_sec=timeout_sec,
             workdir=(str(data["workdir"]) if data.get("workdir") is not None else None),
         )
 

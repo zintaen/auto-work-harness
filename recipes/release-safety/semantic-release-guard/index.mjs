@@ -39,13 +39,15 @@ import { resolve } from 'node:path';
 
 /**
  * Compare two `major.minor.patch` versions. A leading `v` and any prerelease
- * suffix are ignored — the release branch only produces stable versions.
+ * or build metadata are ignored — only the numeric core is compared.
  * @param {string} a - first version.
  * @param {string} b - second version.
  * @returns {number} 1 if a > b, -1 if a < b, 0 if equal.
  */
 export function compareCore(a, b) {
-    const parse = (v) => v.replace(/^v/, '').split('-')[0].split('.').map(Number);
+    // Strip a leading `v`, then drop any prerelease (`-`) or build (`+`) metadata
+    // so only the numeric major.minor.patch core is compared.
+    const parse = (v) => v.replace(/^v/, '').split(/[-+]/)[0].split('.').map(Number);
     const pa = parse(a);
     const pb = parse(b);
 

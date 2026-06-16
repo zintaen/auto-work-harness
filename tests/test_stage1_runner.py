@@ -43,6 +43,12 @@ class TestLoader:
         with pytest.raises(GoldenSetError, match="cmd"):
             load_tasks(f)
 
+    def test_nonpositive_timeout_raises(self, tmp_path):
+        f = tmp_path / "to.yaml"
+        f.write_text("tasks:\n  - {id: a, cmd: 'true', timeout_sec: 0}\n")
+        with pytest.raises(GoldenSetError, match="timeout_sec"):
+            load_tasks(f)
+
     def test_missing_path_raises(self, tmp_path):
         with pytest.raises(GoldenSetError):
             load_tasks(tmp_path / "nope.yaml")

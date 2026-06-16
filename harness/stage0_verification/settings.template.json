@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 __AWH_ROOT__/harness/stage0_verification/hooks/pretooluse_deny.py"
+            "command": "python3 \"__AWH_ROOT__/harness/stage0_verification/hooks/pretooluse_deny.py\""
           }
         ]
       }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 __AWH_ROOT__/harness/stage0_verification/hooks/posttooluse_format.py"
+            "command": "python3 \"__AWH_ROOT__/harness/stage0_verification/hooks/posttooluse_format.py\""
           }
         ]
       }
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 __AWH_ROOT__/harness/stage0_verification/hooks/stop_gate.py"
+            "command": "python3 \"__AWH_ROOT__/harness/stage0_verification/hooks/stop_gate.py\""
           }
         ]
       }
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 __AWH_ROOT__/harness/stage0_verification/hooks/stop_gate.py"
+            "command": "python3 \"__AWH_ROOT__/harness/stage0_verification/hooks/stop_gate.py\""
           }
         ]
       }

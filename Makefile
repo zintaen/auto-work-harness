@@ -9,10 +9,10 @@ install:
 	$(PY) -m pip install --break-system-packages -e ".[dev]"
 
 lint:
-	ruff check .
+	$(PY) -m ruff check .
 
 format:
-	ruff format .
+	$(PY) -m ruff format .
 
 test:
 	$(PY) -m pytest
@@ -29,7 +29,7 @@ mutation:
 	$(PY) scripts/mutation_demo.py
 
 format-check:
-	ruff format --check .
+	$(PY) -m ruff format --check .
 
 # The evidence gate: structure-first, fast, deterministic.
 # Includes format-check so a format drift can't slip through to the eval gate.
