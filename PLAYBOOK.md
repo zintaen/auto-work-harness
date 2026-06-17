@@ -43,19 +43,29 @@ traps we hit" version. Work top to bottom.
 - Write down the repo's **verify commands** (lint / typecheck / test) — you need
   them twice (in `gate.sh` and the golden set).
 
-### 1. Stage 0 — deterministic gates
+### 1. Stage 0 — deterministic gates (one command)
 
 ```bash
-cd ~/Projects/auto-work-harness
-./install.sh /path/to/repo
+awh adopt /path/to/repo
 ```
 
-Writes into the target: `.claude/settings.json` (PreToolUse deny + Stop
-evidence-gate + PostToolUse format) and `.awh/gate.sh` (a stub).
+`awh adopt` folds steps 1–2 (and the policy below) into one idempotent call:
+it installs `.claude/settings.json` (PreToolUse deny + Stop evidence-gate +
+PostToolUse format) and seeds `.awh/gate.sh`, `.awh/goldenset.yaml`, and
+`.awh/policy.json` — never clobbering an existing file (a hand-written
+`settings.json` gets ours beside it as `settings.awh.json`; `--force` overwrites).
+It prints the exact baseline + maturity commands for steps 3 and 6.
+
+> Lower-level alternative: `./install.sh /path/to/repo` does only the Stage-0
+> hook install (no golden-set/policy seeding).
+
+Then make the stubs real:
 
 - **Edit `.awh/gate.sh`** to your real checks, e.g.
-  `pnpm lint && pnpm exec tsc --noEmit && pnpm test`.
-- Lock tests read-only so an agent can't "pass" by editing assertions:
+  `pnpm lint && pnpm exec tsc --noEmit && pnpm test`. (The stub fails on purpose
+  until you do, so an un-edited gate never green-lights a stop.)
+- The seeded `.awh/policy.json` already locks the usual test globs read-only so an
+  agent can't "pass" by editing assertions — widen it for your layout:
 
   ```json
   // .awh/policy.json
@@ -64,7 +74,8 @@ evidence-gate + PostToolUse format) and `.awh/gate.sh` (a stub).
 
 ### 2. Golden set
 
-`.awh/goldenset.yaml` — 2–4 deterministic tasks. Deterministic ⇒ 1 seed is
+`awh adopt` seeded a stub `.awh/goldenset.yaml` — **replace the placeholder tasks
+with your real checks**: 2–4 deterministic tasks. Deterministic ⇒ 1 seed is
 enough; every task gets a `timeout_sec` so a hang is bounded. Keep it
 yamllint-clean (`---` start, watch line length — CI lints it).
 

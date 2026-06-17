@@ -13,7 +13,7 @@ hacking and silent failure far more reliably than any prompt.
 > Design principle (Anthropic, 2026): *"Design for containment at the environment
 > layer first, then steer behavior at the model layer."*
 
-Status: **280 tests passing, ruff-clean.** The Stage-0 policy and egress gates have
+Status: **290 tests passing, ruff-clean.** The Stage-0 policy and egress gates have
 been through a dedicated security/edge-case audit (path-normalization and redirect
 bypasses, command-injection in the rendered firewall, fail-safe policy parsing) — see
 `tests/test_audit_hardening.py`. Pure standard library at the core (no
@@ -80,10 +80,19 @@ make install          # pip install -e ".[dev]"  (pytest, hypothesis, ruff, band
 make verify           # ruff + full test suite  (this is the AUTO_WORK gate)
 ```
 
-**To put the harness to work in a project, follow [`ADOPTING.md`](ADOPTING.md)** —
-the step-by-step adoption guide (Python/Node/Rust). This repo is dogfooded on
-itself: see `.claude/settings.json`, `.awh/`, `goldenset/self.yaml`, and the
-committed `eval-baseline.json`.
+**To put the harness to work in a project, run `awh adopt`** — the one-command
+Stage-0 scaffold:
+
+```bash
+awh adopt /path/to/repo   # installs the gate hooks + seeds .awh/ (gate, golden set, policy)
+```
+
+It's idempotent (never clobbers your files) and prints the exact baseline +
+maturity steps to finish. For the full field guide see [`PLAYBOOK.md`](PLAYBOOK.md)
+(existing repo) or [`NEW_PROJECT.md`](NEW_PROJECT.md) (greenfield); [`ADOPTING.md`](ADOPTING.md)
+is the per-stage reference. This repo is dogfooded on itself: see
+`.claude/settings.json`, `.awh/`, `goldenset/self.yaml`, and the committed
+`eval-baseline.json`.
 
 ## Try each stage
 
@@ -157,10 +166,12 @@ harness/
   stage2_structural/         verifier, scorermix, mutation
   stage3_parallel/           worktree, pipeline
   goldenset/tasks/           example golden set (replace with your own)
+  adopt.py                   `awh adopt` — one-command Stage-0 scaffold
+  maturity.py                self-evolution / convergence ledger
   cli.py                     `awh` entry point
 sandbox/                     devcontainer + iptables, Seatbelt profile, egress proxy
 scripts/mutation_demo.py     end-to-end mutation demonstration (used by CI)
-tests/                       280 tests (unit, Hypothesis PBT, real-repo git, audit-hardening)
+tests/                       290 tests (unit, Hypothesis PBT, real-repo git, audit-hardening)
 recipes/                     reusable hardening patterns folded back from real adoptions
   release-safety/            semantic-release downgrade guard (plugin + CI tripwire)
 ```

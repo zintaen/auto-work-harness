@@ -9,6 +9,7 @@ CI job, or an AUTO_WORK gate script:
     awh eval <tasks>             Stage 1  multi-seed eval + regression gate
     awh mutate <file> --test-cmd Stage 2  mutation score for a test suite
     awh worktree <op> ...        Stage 3  manage per-task worktrees
+    awh adopt <repo>             Meta     one-command Stage-0 scaffold for a repo
     awh maturity [report|log]    Meta     is the harness fine-tuned enough yet?
 """
 
@@ -112,6 +113,16 @@ def _cmd_worktree(args) -> int:
         res = mgr.merge(args.task_id, into=args.into)
         print(res.message)
         return 0 if res.ok else 1
+    return 0
+
+
+def _cmd_adopt(args) -> int:
+    from harness.adopt import scaffold
+
+    root = Path(__file__).resolve().parents[1]
+    report = scaffold(args.repo, root, force=args.force)
+    print(report.summary())
+    print(report.next_steps())
     return 0
 
 
@@ -221,6 +232,16 @@ def build_parser() -> argparse.ArgumentParser:
     wt.add_argument("--force", action="store_true")
     wt.add_argument("--delete-branch", action="store_true")
     wt.set_defaults(func=_cmd_worktree)
+
+    ad = sub.add_parser(
+        "adopt",
+        help="Meta: one-command Stage-0 scaffold (install hooks + seed .awh/) for a repo",
+    )
+    ad.add_argument("repo", help="path to the target repo to harden")
+    ad.add_argument(
+        "--force", action="store_true", help="overwrite an existing .claude/settings.json"
+    )
+    ad.set_defaults(func=_cmd_adopt)
 
     ma = sub.add_parser(
         "maturity",
