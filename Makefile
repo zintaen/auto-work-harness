@@ -44,5 +44,11 @@ all: verify eval mutation
 ci: verify
 	$(PY) scripts/mutation_demo.py
 
+# Remove ALL regenerable artifacts (caches, build, bytecode, OS cruft).
+# Uses `find` so __pycache__ is cleaned recursively (a plain **/ glob misses nested dirs).
 clean:
-	rm -rf .pytest_cache .ruff_cache .hypothesis **/__pycache__ eval-runs *.evalreport.json
+	rm -rf .pytest_cache .ruff_cache .hypothesis .mypy_cache eval-runs *.evalreport.json
+	rm -rf .coverage .coverage.* *.egg-info
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name '*.pyc' -delete 2>/dev/null || true
+	find . -name .DS_Store -delete 2>/dev/null || true
