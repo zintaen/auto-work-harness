@@ -176,6 +176,18 @@ class TestGate:
         cur = _report("cur", {"a": (5, 5, 1)})
         assert bool(gate(cur, base)) is True
 
+    def test_new_task_absent_from_baseline_fails_closed(self):
+        # A current task with no baseline counterpart must NOT be silently skipped:
+        # a renamed or new held-out acceptance would otherwise slip through un-gated.
+        base = _report("base", {"a": (5, 5, 1)})
+        cur = _report("cur", {"a": (5, 5, 1), "b": (5, 5, 1)})  # b passes but is new
+        g = gate(cur, base)
+        assert not g.ok
+        assert any(
+            r["task_id"] == "b" and r.get("reason") == "absent_from_baseline"
+            for r in g.regressions
+        )
+
 
 def test_default_runner_is_safe_run():
     # guard: default runner is the hardened one (process-group kill, not bare subprocess.run)
